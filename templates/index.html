@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>釜山旅遊 🇰🇷</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+/* ── RESET & VARS ── */
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --d1:#FF6B6B;--d2:#4ECDC4;--d3:#45B7D1;--d4:#96CEB4;--d5:#DDA0DD;
+  --bg:#0F0F1A;--surface:#1A1A2E;--card:#16213E;--border:#2A2A4A;
+  --text:#E8E8F0;--muted:#8888AA;--green:#4ECDC4;--red:#FF6B6B;
+}
+html,body{height:100%;height:100dvh;overflow:hidden}
+body{font-family:-apple-system,'Segoe UI','Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+
+/* ── HEADER ── */
+header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:10px;z-index:100}
+.hdr-flag{font-size:22px}
+.hdr-info{flex:1}
+.hdr-title{font-size:15px;font-weight:700}
+.hdr-sub{font-size:11px;color:var(--muted)}
+.sync-pill{display:flex;align-items:center;gap:5px;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:10px;font-weight:600;color:var(--muted)}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;transition:background .3s}
+.sync-dot.loading{animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.hdr-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:background .2s}
+.hdr-btn:hover{background:var(--border)}
+
+/* ── DAY TABS ── */
+.day-tabs{height:44px;flex-shrink:0;display:flex;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+.day-tabs::-webkit-scrollbar{display:none}
+.day-tab{flex:1;min-width:68px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border-bottom:3px solid transparent;transition:all .2s;padding:2px 4px}
+.day-tab .dt-d{font-size:9px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.day-tab .dt-date{font-size:12px;font-weight:800}
+.day-tab .dt-theme{font-size:9px;color:var(--muted)}
+.day-tab[data-d="0"].active{border-bottom-color:var(--d1)}.day-tab[data-d="0"].active .dt-date{color:var(--d1)}
+.day-tab[data-d="1"].active{border-bottom-color:var(--d2)}.day-tab[data-d="1"].active .dt-date{color:var(--d2)}
+.day-tab[data-d="2"].active{border-bottom-color:var(--d3)}.day-tab[data-d="2"].active .dt-date{color:var(--d3)}
+.day-tab[data-d="3"].active{border-bottom-color:var(--d4)}.day-tab[data-d="3"].active .dt-date{color:var(--d4)}
+.day-tab[data-d="4"].active{border-bottom-color:var(--d5)}.day-tab[data-d="4"].active .dt-date{color:var(--d5)}
+
+/* ── VIEWS ── */
+.views{flex:1;overflow:hidden;position:relative}
+.view{position:absolute;inset:0;display:none;flex-direction:column}
+.view.active{display:flex}
+
+/* ── MAP VIEW ── */
+#view-map .map-body{flex:1;display:flex;overflow:hidden;position:relative}
+#map{flex:1}
+
+/* Desktop timeline */
+.tl-panel{width:290px;min-width:260px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.tl-scroll{overflow-y:auto;flex:1;padding:12px;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.tl-scroll::-webkit-scrollbar{width:4px}
+.tl-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* Timeline items */
+.tl-item{display:flex;gap:8px;padding:8px;border-radius:10px;cursor:pointer;transition:background .15s}
+.tl-item:hover,.tl-item.active{background:var(--card)}
+.tl-line{display:flex;flex-direction:column;align-items:center;width:26px;flex-shrink:0}
+.tl-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:2px solid transparent;flex-shrink:0;transition:transform .2s}
+.tl-item.active .tl-dot{transform:scale(1.2)}
+.tl-conn{width:2px;flex:1;min-height:6px;margin:2px 0;opacity:.3}
+.tl-body{flex:1;padding-top:2px;min-width:0}
+.tl-time{font-size:10px;color:var(--muted);font-weight:600}
+.tl-name{font-size:13px;font-weight:600;line-height:1.3}
+.tl-note{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.4}
+.tl-tags{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}
+.tl-tag{font-size:10px;padding:1px 6px;border-radius:10px}
+
+/* Mobile drawer */
+.tl-drawer{position:absolute;inset:auto 0 0 0;z-index:200;height:52%;background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+.tl-drawer.open{transform:translateY(0)}
+.tl-handle{height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.tl-handle::after{content:'';width:36px;height:4px;background:var(--border);border-radius:2px}
+
+/* Map FABs */
+.map-fabs{position:absolute;bottom:16px;right:16px;z-index:100;display:flex;flex-direction:column;gap:8px}
+.map-fab{width:46px;height:46px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.45);transition:transform .2s}
+.map-fab:hover{transform:scale(1.06)}
+
+/* ── EXPENSE VIEW ── */
+#view-expense{overflow-y:auto}
+.exp-section{padding:16px 16px 0}
+.exp-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.exp-title::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* Balance cards */
+.bal-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.bal-row::-webkit-scrollbar{display:none}
+.bal-card{min-width:108px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px;flex-shrink:0}
+.bc-name{font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bc-paid{font-size:10px;color:var(--muted);margin-top:1px}
+.bc-net{font-size:19px;font-weight:800;margin-top:5px;line-height:1}
+.bc-net.pos{color:var(--green)}.bc-net.neg{color:var(--red)}.bc-net.zero{color:var(--muted)}
+.bc-lbl{font-size:10px;margin-top:2px;color:var(--muted)}
+
+/* Settlement */
+.settle-empty{text-align:center;padding:14px;color:var(--muted);font-size:13px}
+.settle-item{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+.si-from{font-weight:700;font-size:14px;white-space:nowrap}
+.si-arrow{color:var(--muted);font-size:20px}
+.si-to{font-weight:700;font-size:14px;white-space:nowrap}
+.si-amt{margin-left:auto;font-size:16px;font-weight:800;color:var(--red);white-space:nowrap}
+
+/* Expense list */
+.exp-item{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px;margin-bottom:8px}
+.ei-icon{font-size:22px;flex-shrink:0}
+.ei-body{flex:1;min-width:0}
+.ei-name{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ei-meta{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ei-right{text-align:right;flex-shrink:0}
+.ei-amt{font-size:15px;font-weight:800}
+.ei-twd{font-size:10px;color:var(--muted)}
+.ei-del{width:30px;height:30px;border-radius:50%;border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s}
+.ei-del:hover{background:#FF6B6B22;color:var(--red)}
+.day-badge{font-size:9px;padding:2px 6px;border-radius:8px;font-weight:600;white-space:nowrap}
+.exp-spacer{height:80px}
+
+/* ── BOTTOM TAB BAR ── */
+.bottom-tabs{height:60px;flex-shrink:0;background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:100}
+.btab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;border:none;background:none;color:var(--muted);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;transition:color .2s;padding:8px}
+.btab-icon{font-size:22px;transition:filter .2s}
+.btab.active{color:var(--text)}
+.btab.active .btab-icon{filter:drop-shadow(0 0 8px currentColor)}
+
+/* ── FAB ── */
+.fab{position:fixed;bottom:76px;right:18px;z-index:200;width:56px;height:56px;border-radius:50%;border:none;cursor:pointer;background:linear-gradient(135deg,#FF6B6B,#FF9090);color:#fff;font-size:28px;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px #FF6B6B66;transition:transform .2s,opacity .2s}
+.fab:hover{transform:scale(1.07)}
+.fab.hidden{opacity:0;pointer-events:none;transform:scale(.8)}
+
+/* ── MODALS ── */
+.overlay{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
+.overlay.open{opacity:1;pointer-events:all}
+.sheet{width:100%;max-width:500px;background:var(--surface);border-radius:20px 20px 0 0;border:1px solid var(--border);border-bottom:none;max-height:92dvh;overflow-y:auto;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1)}
+.overlay.open .sheet{transform:translateY(0)}
+.sheet-handle{height:28px;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer}
+.sheet-handle::after{content:'';width:36px;height:4px;background:var(--border);border-radius:2px}
+.sheet-head{padding:4px 16px 14px;display:flex;align-items:center}
+.sheet-title{font-size:18px;font-weight:800;flex:1}
+.sheet-close{width:32px;height:32px;border-radius:50%;border:none;background:var(--border);color:var(--text);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
+.sheet-body{padding:0 16px 36px}
+
+/* Form */
+.fg{margin-bottom:14px}
+.flabel{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;display:block}
+.finput{width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:11px 12px;font-size:15px;font-family:inherit;outline:none;transition:border-color .2s}
+.finput:focus{border-color:#FF6B6B66}
+.frow{display:flex;gap:8px}
+.frow .fg{flex:1}
+.curr-toggle{display:flex;background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.curr-btn{flex:1;padding:11px 8px;border:none;background:none;color:var(--muted);cursor:pointer;font-size:13px;font-weight:700;transition:all .2s}
+.curr-btn.active{background:var(--border);color:var(--text)}
+.chip-row{display:flex;flex-wrap:wrap;gap:7px}
+.chip{padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:13px;font-weight:500;transition:all .2s;user-select:none}
+.chip.on{background:#FF6B6B22;border-color:#FF6B6B;color:#FF6B6B}
+.sbtn{width:100%;padding:15px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#FF6B6B,#FF9090);color:#fff;font-size:16px;font-weight:700;margin-top:8px;transition:transform .2s}
+.sbtn:hover{transform:scale(.99)}
+.sbtn:disabled{opacity:.6;cursor:not-allowed}
+
+/* Settings */
+.mlist{display:flex;flex-direction:column;gap:7px;margin-bottom:10px}
+.mitem{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 12px}
+.mname{flex:1;font-size:14px;font-weight:600}
+.mdel{border:none;background:none;color:var(--muted);cursor:pointer;font-size:17px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all .2s}
+.mdel:hover{background:#FF6B6B22;color:var(--red)}
+.madd-row{display:flex;gap:8px}
+.madd-btn{padding:11px 14px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;font-size:14px;font-weight:600;white-space:nowrap}
+
+/* Empty */
+.empty{text-align:center;padding:40px 24px;color:var(--muted)}
+.empty-icon{font-size:44px;margin-bottom:10px}
+.empty-txt{font-size:13px;line-height:1.6}
+
+/* Leaflet popup */
+.leaflet-popup-content-wrapper{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.5)}
+.leaflet-popup-tip{background:var(--card)}
+.lp{min-width:160px}.lp .pe{font-size:22px;text-align:center;margin-bottom:4px}
+.lp .pn{font-size:13px;font-weight:700}.lp .pt{font-size:11px;color:var(--muted);margin-top:2px}
+.lp .pd{font-size:11px;margin-top:5px;line-height:1.45;opacity:.8}
+
+/* Desktop */
+@media(min-width:768px){
+  .tl-panel{display:flex!important;order:-1}
+  .tl-drawer,.map-fabs{display:none!important}
+}
+@media(max-width:767px){
+  .tl-panel{display:none!important}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <span class="hdr-flag">🇰🇷</span>
+  <div class="hdr-info">
+    <div class="hdr-title">釜山旅遊行程</div>
+    <div class="hdr-sub">2026 · 6/5–6/9 · 5天4夜</div>
+  </div>
+  <div class="sync-pill">
+    <div class="sync-dot" id="syncDot"></div>
+    <span id="syncTxt">已同步</span>
+  </div>
+  <button class="hdr-btn" onclick="openSettings()" title="設定">⚙️</button>
+</header>
+
+<!-- DAY TABS -->
+<div class="day-tabs" id="dayTabs"></div>
+
+<!-- VIEWS -->
+<div class="views">
+
+  <!-- MAP VIEW -->
+  <div id="view-map" class="view active">
+    <div class="map-body">
+      <div class="tl-panel"><div class="tl-scroll" id="tlDesk"></div></div>
+      <div id="map"></div>
+      <div class="tl-drawer" id="tlDrawer">
+        <div class="tl-handle" onclick="toggleDrawer()"></div>
+        <div class="tl-scroll" id="tlMob" style="flex:1;overflow-y:auto"></div>
+      </div>
+    </div>
+    <div class="map-fabs">
+      <div class="map-fab" onclick="toggleDrawer()">📋</div>
+    </div>
+  </div>
+
+  <!-- EXPENSE VIEW -->
+  <div id="view-expense" class="view" style="overflow-y:auto">
+    <div class="exp-section" id="secBalances"></div>
+    <div class="exp-section" id="secSettle"></div>
+    <div class="exp-section" id="secList"></div>
+    <div class="exp-spacer"></div>
+  </div>
+
+</div>
+
+<!-- BOTTOM TABS -->
+<div class="bottom-tabs">
+  <button class="btab active" id="btab-map" onclick="switchTab('map')">
+    <span class="btab-icon">🗺️</span><span>行程地圖</span>
+  </button>
+  <button class="btab" id="btab-expense" onclick="switchTab('expense')">
+    <span class="btab-icon">💰</span><span>分帳記帳</span>
+  </button>
+</div>
+
+<!-- FAB -->
+<button class="fab hidden" id="fab" onclick="openAddExpense()">＋</button>
+
+<!-- ── MODAL: ADD EXPENSE ── -->
+<div class="overlay" id="ovExp" onclick="overlayClick(event,'ovExp')">
+  <div class="sheet">
+    <div class="sheet-handle" onclick="closeModal('ovExp')"></div>
+    <div class="sheet-head">
+      <div class="sheet-title">💸 新增消費</div>
+      <button class="sheet-close" onclick="closeModal('ovExp')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="fg">
+        <label class="flabel">消費名稱</label>
+        <input class="finput" id="eName" placeholder="例：午餐、纜車票、藥妝…" type="text">
+      </div>
+      <div class="frow">
+        <div class="fg">
+          <label class="flabel">金額</label>
+          <input class="finput" id="eAmt" placeholder="0" type="number" inputmode="decimal">
+        </div>
+        <div class="fg">
+          <label class="flabel">幣別</label>
+          <div class="curr-toggle">
+            <button class="curr-btn active" id="cKRW" onclick="setCurr('KRW')">₩ KRW</button>
+            <button class="curr-btn" id="cTWD" onclick="setCurr('TWD')">NT$ TWD</button>
+          </div>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="flabel">付款人</label>
+        <select class="finput" id="ePayer"></select>
+      </div>
+      <div class="fg">
+        <label class="flabel">分攤對象 <span id="splitPreview" style="color:var(--green);font-weight:600;text-transform:none;letter-spacing:0"></span></label>
+        <div class="chip-row" id="chipRow"></div>
+      </div>
+      <div class="frow">
+        <div class="fg">
+          <label class="flabel">第幾天</label>
+          <select class="finput" id="eDay">
+            <option value="0">不指定</option>
+            <option value="1">Day 1 · 海雲台</option>
+            <option value="2">Day 2 · 廣安里</option>
+            <option value="3">Day 3 · 影島松島</option>
+            <option value="4">Day 4 · 購物日</option>
+            <option value="5">Day 5 · 返程</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label class="flabel">備註</label>
+          <input class="finput" id="eNote" placeholder="選填" type="text">
+        </div>
+      </div>
+      <button class="sbtn" id="addBtn" onclick="submitExpense()">✅ 新增消費</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: SETTINGS ── -->
+<div class="overlay" id="ovSet" onclick="overlayClick(event,'ovSet')">
+  <div class="sheet">
+    <div class="sheet-handle" onclick="closeModal('ovSet')"></div>
+    <div class="sheet-head">
+      <div class="sheet-title">⚙️ 設定</div>
+      <button class="sheet-close" onclick="closeModal('ovSet')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="fg">
+        <label class="flabel">我是</label>
+        <select class="finput" id="myNameSel" onchange="S.myName=this.value;localStorage.setItem('bsMyName',this.value)"></select>
+      </div>
+      <div class="fg">
+        <label class="flabel">旅遊成員</label>
+        <div class="mlist" id="mlist"></div>
+        <div class="madd-row">
+          <input class="finput" id="newMember" placeholder="輸入成員名稱" type="text" onkeydown="if(event.key==='Enter')addMember()">
+          <button class="madd-btn" onclick="addMember()">＋ 新增</button>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="flabel">匯率（1 KRW = ? TWD）</label>
+        <input class="finput" id="krwRateInput" type="number" step="0.001" placeholder="0.023">
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">2026年約 0.023（₩10,000 ≈ NT$230）</div>
+      </div>
+      <button class="sbtn" id="saveSetBtn" onclick="saveSettings()">💾 儲存設定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  ITINERARY DATA
+// ═══════════════════════════════════════════
+const DAYS=[
+  {label:"Day 1",date:"6/5",theme:"海雲台",color:"#FF6B6B",spots:[
+    {time:"02:40",name:"桃園機場出發",emoji:"✈️",lat:25.0777,lng:121.2329,desc:"桃園→釜山 2.5 小時",tags:["交通"]},
+    {time:"06:10",name:"金海國際機場抵達",emoji:"🛬",lat:35.1795,lng:128.9386,desc:"抵達釜山金海機場",tags:["交通"]},
+    {time:"07:00",name:"飯店寄放行李",emoji:"🏨",lat:35.1628,lng:129.1598,desc:"海雲台飯店寄放行李",tags:["住宿"]},
+    {time:"07:50",name:"早餐",emoji:"🍳",lat:35.1620,lng:129.1582,desc:"附近輕鬆用餐",tags:["美食"]},
+    {time:"09:00",name:"SPA LAND 汗蒸幕",emoji:"♨️",lat:35.1702,lng:129.1311,desc:"新世界百貨 ₩78,000，多種主題浴池",tags:["體驗","必去"]},
+    {time:"11:00",name:"醬蟹餐廳（간장게장）",emoji:"🦀",lat:35.1640,lng:129.1600,desc:"正宗釜山醬蟹料理",tags:["美食"]},
+    {time:"13:00",name:"膠囊列車 五井→青沙浦",emoji:"🚃",lat:35.1500,lng:129.1980,desc:"海岸懸崖膠囊列車，絕景路線",tags:["體驗","打卡"]},
+    {time:"14:30",name:"Liberta Cafe",emoji:"☕",lat:35.1490,lng:129.1960,desc:"懸崖邊網美咖啡廳",tags:["咖啡","打卡"]},
+    {time:"16:00",name:"海雲台傳統市場",emoji:"🛍️",lat:35.1582,lng:129.1612,desc:"傳統市場必買甜食小點",tags:["購物","美食"]},
+    {time:"19:00",name:"飯店入住休息",emoji:"🌙",lat:35.1628,lng:129.1598,desc:"早班機後好好補眠",tags:["住宿"]},
+  ]},
+  {label:"Day 2",date:"6/6",theme:"廣安里",color:"#4ECDC4",spots:[
+    {time:"09:30",name:"Working Holiday Brunch Cafe",emoji:"🥞",lat:35.1531,lng:129.1182,desc:"廣安里網紅早午餐 9:30-18:00",tags:["美食","打卡"]},
+    {time:"11:00",name:"V Vanilla House",emoji:"👗",lat:35.1540,lng:129.1190,desc:"韓系精選服飾選物店",tags:["購物"]},
+    {time:"11:30",name:"Breeze Archive",emoji:"🧥",lat:35.1535,lng:129.1185,desc:"韓系精選品牌",tags:["購物"]},
+    {time:"12:00",name:"Cosy Mosy 選物店",emoji:"🎀",lat:35.1538,lng:129.1192,desc:"可愛風格精選",tags:["購物"]},
+    {time:"13:00",name:"廣安里午餐",emoji:"🍱",lat:35.1545,lng:129.1200,desc:"當地韓式料理",tags:["美食"]},
+    {time:"15:00",name:"廣安里海水浴場",emoji:"🏖️",lat:35.1531,lng:129.1250,desc:"廣安大橋絕景海灘",tags:["景點","打卡"]},
+    {time:"17:00",name:"廣安里海景咖啡廳",emoji:"☕",lat:35.1530,lng:129.1240,desc:"廣安大橋夕陽下午茶",tags:["咖啡","打卡"]},
+    {time:"19:00",name:"廣安里晚餐",emoji:"🍽️",lat:35.1528,lng:129.1228,desc:"海濱餐廳晚餐（部分需訂位）",tags:["美食"]},
+  ]},
+  {label:"Day 3",date:"6/7",theme:"影島松島",color:"#45B7D1",spots:[
+    {time:"10:00",name:"ARTE MUSEUM Busan（可選）",emoji:"🎨",lat:35.0980,lng:129.0350,desc:"沉浸式數位藝術美術館",tags:["藝術","打卡"]},
+    {time:"12:00",name:"海女市場（해녀 Market）",emoji:"🦑",lat:35.0800,lng:129.0200,desc:"新鮮海產邊走邊吃",tags:["美食","必去"]},
+    {time:"14:00",name:"白淵文化村（흰여울）",emoji:"🏘️",lat:35.0849,lng:129.0268,desc:"懸崖彩繪村，影島必訪絕景",tags:["景點","打卡"]},
+    {time:"15:30",name:"松島海上纜車",emoji:"🚡",lat:35.0759,lng:129.0153,desc:"玻璃底板纜車，海景絕美",tags:["體驗","打卡"]},
+    {time:"17:00",name:"松島海水浴場",emoji:"🌅",lat:35.0780,lng:129.0170,desc:"夕陽時分海灘漫步",tags:["景點"]},
+    {time:"18:30",name:"西面 BBQ 燒烤",emoji:"🥩",lat:35.1579,lng:129.0586,desc:"西面美食街韓式燒肉晚餐",tags:["美食","必吃"]},
+    {time:"20:00",name:"Olive Young 西面旗艦",emoji:"💄",lat:35.1570,lng:129.0590,desc:"韓國最大藥妝，掃貨必停",tags:["購物"]},
+  ]},
+  {label:"Day 4",date:"6/8",theme:"購物日",color:"#96CEB4",spots:[
+    {time:"11:00",name:"豬肉湯飯（米其林推薦）",emoji:"🍲",lat:35.1600,lng:129.0600,desc:"米其林推薦，11點準時到",tags:["美食","必吃"]},
+    {time:"13:00",name:"新世界百貨 Centum City",emoji:"🏬",lat:35.1702,lng:129.1311,desc:"全球最大百貨公司之一",tags:["購物","必去"]},
+    {time:"14:30",name:"樂天百貨 Centum City",emoji:"🛒",lat:35.1698,lng:129.1300,desc:"樂天百貨免稅店",tags:["購物"]},
+    {time:"16:00",name:"蔘雞湯（50年老店）",emoji:"🍗",lat:35.1610,lng:129.0610,desc:"傳統蔘雞湯老店",tags:["美食"]},
+    {time:"17:30",name:"西面商業街",emoji:"🛍️",lat:35.1579,lng:129.0586,desc:"地下商圈＋路邊攤掃貨",tags:["購物"]},
+    {time:"19:30",name:"西面晚餐",emoji:"🍻",lat:35.1575,lng:129.0580,desc:"炸雞啤酒必嘗",tags:["美食"]},
+  ]},
+  {label:"Day 5",date:"6/9",theme:"返程",color:"#DDA0DD",spots:[
+    {time:"11:00",name:"飯店退房",emoji:"🧳",lat:35.1628,lng:129.1598,desc:"整理行李辦理退房",tags:["住宿"]},
+    {time:"11:30",name:"Skyline Luge Busan",emoji:"🛷",lat:35.1627,lng:129.1600,desc:"海雲台山坡滑車，超刺激！",tags:["體驗","必玩"]},
+    {time:"14:00",name:"最後午餐",emoji:"🍜",lat:35.1630,lng:129.1590,desc:"海雲台最後一頓韓食",tags:["美食"]},
+    {time:"17:00",name:"前往金海機場",emoji:"🚌",lat:35.1795,lng:128.9386,desc:"機場巴士 / 地鐵出發",tags:["交通"]},
+    {time:"21:05",name:"釜山出發回台灣",emoji:"✈️",lat:35.1795,lng:128.9386,desc:"21:05 起飛 → 22:25 抵台",tags:["交通"]},
+  ]},
+];
+
+const TAG_C={
+  "交通":"#8888AA","住宿":"#DDA0DD","美食":"#FF9F43","體驗":"#54A0FF",
+  "購物":"#A29BFE","景點":"#01CBC6","咖啡":"#FD79A8","打卡":"#FD79A8",
+  "必去":"#FF6B6B","必吃":"#FF6B6B","必玩":"#FF6B6B","藝術":"#FDCB6E"
+};
+const DAY_CLR=["","#FF6B6B","#4ECDC4","#45B7D1","#96CEB4","#DDA0DD"];
+const DAY_NM=["","Day 1","Day 2","Day 3","Day 4","Day 5"];
+
+// ═══════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════
+const S={
+  tab:'map', day:0, spot:null,
+  expenses:[], members:[], myName:localStorage.getItem('bsMyName')||'',
+  krwRate:0.023, curr:'KRW',
+  selParts:new Set(),
+  drawerOpen:false,
+  pollTimer:null,
+};
+
+// ═══════════════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════════════
+let map, markers=[], polys=[];
+
+document.addEventListener('DOMContentLoaded', async ()=>{
+  initMap();
+  renderDayTabs();
+  renderDay(0);
+  await loadConfig();
+  await loadExpenses();
+  startPoll();
+});
+
+// ═══════════════════════════════════════════
+//  API
+// ═══════════════════════════════════════════
+async function loadConfig(){
+  try{
+    const r=await fetch('/api/config'); const c=await r.json();
+    S.members=c.members||[];
+    S.krwRate=parseFloat(c.krw_rate)||0.023;
+  }catch(e){console.warn('config fail',e)}
+}
+async function loadExpenses(){
+  setSyncing(true);
+  try{
+    const r=await fetch('/api/expenses');
+    S.expenses=await r.json();
+    if(S.tab==='expense') renderExpenses();
+    setSyncing(false);
+  }catch(e){setSyncing(false,true)}
+}
+async function postExpense(d){
+  const r=await fetch('/api/expenses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
+  return r.json();
+}
+async function delExpense(id){
+  await fetch(`/api/expenses/${id}`,{method:'DELETE'});
+  await loadExpenses();
+}
+async function postConfig(d){
+  await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
+}
+
+function setSyncing(on,err=false){
+  const dot=document.getElementById('syncDot');
+  const txt=document.getElementById('syncTxt');
+  dot.className='sync-dot'+(on?' loading':'');
+  dot.style.background=err?'#FF6B6B':on?'#FDCB6E':'#4ECDC4';
+  txt.textContent=err?'離線':'已同步';
+}
+function startPoll(){
+  clearInterval(S.pollTimer);
+  S.pollTimer=setInterval(()=>{ if(S.tab==='expense') loadExpenses(); },7000);
+}
+
+// ═══════════════════════════════════════════
+//  MAP
+// ═══════════════════════════════════════════
+function initMap(){
+  map=L.map('map',{zoomControl:false}).setView([35.12,129.08],13);
+  L.control.zoom({position:'topright'}).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© CARTO',maxZoom:19}).addTo(map);
+}
+function mkIcon(color,emoji,active=false){
+  const s=active?40:32;
+  return L.divIcon({
+    html:`<div style="width:${s}px;height:${s}px;background:${color};border:${active?3:2}px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:${active?16:13}px;box-shadow:0 2px ${active?14:7}px ${color}88">${emoji}</div>`,
+    className:'',iconSize:[s,s],iconAnchor:[s/2,s/2]
+  });
+}
+function renderDay(i){
+  S.day=i; S.spot=null;
+  markers.forEach(m=>map.removeLayer(m)); markers=[];
+  polys.forEach(p=>map.removeLayer(p)); polys=[];
+  const day=DAYS[i], valid=day.spots.filter(s=>s.lat), bounds=[];
+  valid.forEach((sp,si)=>{
+    const m=L.marker([sp.lat,sp.lng],{icon:mkIcon(day.color,sp.emoji)}).addTo(map);
+    m.bindPopup(`<div class="lp"><div class="pe">${sp.emoji}</div><div class="pn">${sp.name}</div><div class="pt">${sp.time}</div>${sp.desc?`<div class="pd">${sp.desc}</div>`:''}</div>`,{maxWidth:220});
+    m.on('click',()=>setSpot(i,si));
+    markers.push(m); bounds.push([sp.lat,sp.lng]);
+  });
+  if(valid.length>1){
+    const poly=L.polyline(valid.map(s=>[s.lat,s.lng]),{color:day.color,weight:2.5,opacity:.5,dashArray:'6,8'}).addTo(map);
+    polys.push(poly);
+  }
+  if(bounds.length) map.fitBounds(bounds,{padding:[40,40]});
+  renderDayTabs(); renderTimeline(-1);
+}
+function setSpot(di,si){
+  S.day=di; S.spot=si;
+  const day=DAYS[di];
+  markers.forEach((m,i)=>m.setIcon(mkIcon(day.color,day.spots[i].emoji,i===si)));
+  map.panTo([day.spots[si].lat,day.spots[si].lng],{animate:true,duration:.4});
+  markers[si]?.openPopup();
+  renderTimeline(si);
+  document.querySelector(`[data-tl="${si}"]`)?.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ═══════════════════════════════════════════
+//  DAY TABS
+// ═══════════════════════════════════════════
+function renderDayTabs(){
+  document.getElementById('dayTabs').innerHTML=DAYS.map((d,i)=>
+    `<div class="day-tab ${i===S.day?'active':''}" data-d="${i}" onclick="renderDay(${i})">
+      <div class="dt-d">${d.label}</div><div class="dt-date">${d.date}</div><div class="dt-theme">${d.theme}</div>
+    </div>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════
+//  TIMELINE
+// ═══════════════════════════════════════════
+function tlHTML(hi=-1){
+  const day=DAYS[S.day];
+  return day.spots.map((sp,i)=>{
+    const isLast=i===day.spots.length-1;
+    const tags=(sp.tags||[]).map(t=>`<span class="tl-tag" style="background:${TAG_C[t]||'#555'}22;color:${TAG_C[t]||'#aaa'};border:1px solid ${TAG_C[t]||'#555'}44">${t}</span>`).join('');
+    return `<div class="tl-item ${i===hi?'active':''}" data-tl="${i}" onclick="setSpot(${S.day},${i})">
+      <div class="tl-line">
+        <div class="tl-dot" style="background:${day.color}22;color:${day.color};border-color:${day.color}66">${sp.emoji}</div>
+        ${!isLast?`<div class="tl-conn" style="background:${day.color}"></div>`:''}
+      </div>
+      <div class="tl-body">
+        <div class="tl-time">${sp.time}</div>
+        <div class="tl-name">${sp.name}</div>
+        ${sp.desc?`<div class="tl-note">${sp.desc}</div>`:''}
+        ${tags?`<div class="tl-tags">${tags}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+function renderTimeline(hi=-1){
+  const h=tlHTML(hi);
+  document.getElementById('tlDesk').innerHTML=h;
+  const mob=document.getElementById('tlMob');
+  mob.innerHTML=h;
+  mob.querySelectorAll('.tl-item').forEach((el,i)=>{
+    el.onclick=()=>{setSpot(S.day,i); closeDrawer();};
+  });
+}
+function toggleDrawer(){S.drawerOpen=!S.drawerOpen; document.getElementById('tlDrawer').classList.toggle('open',S.drawerOpen);}
+function closeDrawer(){S.drawerOpen=false; document.getElementById('tlDrawer').classList.remove('open');}
+
+// ═══════════════════════════════════════════
+//  TAB SWITCHING
+// ═══════════════════════════════════════════
+function switchTab(tab){
+  S.tab=tab;
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById(`view-${tab}`).classList.add('active');
+  document.querySelectorAll('.btab').forEach(b=>b.classList.remove('active'));
+  document.getElementById(`btab-${tab}`).classList.add('active');
+  document.getElementById('dayTabs').style.display=tab==='map'?'flex':'none';
+  document.getElementById('fab').classList.toggle('hidden',tab!=='expense');
+  if(tab==='expense'){loadExpenses(); closeDrawer();}
+  if(tab==='map') setTimeout(()=>map.invalidateSize(),60);
+}
+
+// ═══════════════════════════════════════════
+//  EXPENSE RENDERING
+// ═══════════════════════════════════════════
+function toTWD(amt,cur){return cur==='KRW'?amt*S.krwRate:amt;}
+function fmtAmt(amt,cur){return cur==='KRW'?`₩${Math.round(amt).toLocaleString()}`:`NT$${Math.round(amt).toLocaleString()}`;}
+function fmtTWD(amt){return `NT$${Math.round(amt).toLocaleString()}`;}
+
+function calcBalances(){
+  const paid={}, net={};
+  S.members.forEach(m=>{paid[m]=0; net[m]=0;});
+  for(const exp of S.expenses){
+    const twd=toTWD(exp.amount,exp.currency);
+    const parts=Array.isArray(exp.participants)?exp.participants:[];
+    const share=parts.length>0?twd/parts.length:0;
+    if(!(exp.payer in paid)){paid[exp.payer]=0; net[exp.payer]=0;}
+    paid[exp.payer]+=twd; net[exp.payer]+=twd;
+    parts.forEach(p=>{if(!(p in net)){net[p]=0;} net[p]-=share;});
+  }
+  return {paid,net};
+}
+
+function calcSettle(net){
+  const cred=Object.entries(net).filter(([,v])=>v>0.5).sort((a,b)=>b[1]-a[1]);
+  const debt=Object.entries(net).filter(([,v])=>v<-0.5).map(([k,v])=>[k,-v]).sort((a,b)=>b[1]-a[1]);
+  const ca=cred.map(([,v])=>v), da=debt.map(([,v])=>v), txns=[];
+  let ci=0, di=0;
+  while(ci<cred.length && di<debt.length){
+    const t=Math.min(ca[ci],da[di]);
+    txns.push({from:debt[di][0],to:cred[ci][0],amount:Math.round(t)});
+    ca[ci]-=t; da[di]-=t;
+    if(ca[ci]<0.5)ci++; if(da[di]<0.5)di++;
+  }
+  return txns;
+}
+
+function expEmoji(name){
+  const n=(name||'').toLowerCase();
+  if(/餐|飯|吃|食|lunch|dinner|breakfast|拉麵|鍋|肉|魚|蟹|雞|豬|牛/.test(n))return'🍽️';
+  if(/咖啡|cafe|coffee|拿鐵|茶/.test(n))return'☕';
+  if(/計程|taxi|uber|巴士|地鐵|metro|交通|機場|火車|列車/.test(n))return'🚕';
+  if(/住|飯店|hotel|民宿/.test(n))return'🏨';
+  if(/購|買|shop|百貨|藥妝|olive/.test(n))return'🛍️';
+  if(/票|門票|入場|纜車|luge|spa|汗蒸/.test(n))return'🎟️';
+  if(/酒|beer|飲料|drink/.test(n))return'🍺';
+  return'💸';
+}
+
+function renderExpenses(){
+  if(S.members.length===0){
+    document.getElementById('secBalances').innerHTML=`<div class="empty"><div class="empty-icon">👥</div><div class="empty-txt">請先點右上角 ⚙️ 設定<br>新增旅遊成員後開始記帳</div></div>`;
+    document.getElementById('secSettle').innerHTML='';
+    document.getElementById('secList').innerHTML='';
+    return;
+  }
+  const {paid,net}=calcBalances();
+  const total=S.expenses.reduce((s,e)=>s+toTWD(e.amount,e.currency),0);
+
+  // Balances
+  const bHTML=S.members.map(m=>{
+    const n=net[m]||0;
+    const cls=n>0.5?'pos':n<-0.5?'neg':'zero';
+    const lbl=n>0.5?'待收回':n<-0.5?'待付出':'已結清';
+    return `<div class="bal-card">
+      <div class="bc-name">${m}</div>
+      <div class="bc-paid">已付 ${fmtTWD(paid[m]||0)}</div>
+      <div class="bc-net ${cls}">${fmtTWD(Math.abs(n))}</div>
+      <div class="bc-lbl">${lbl}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('secBalances').innerHTML=`
+    <div class="exp-title">💳 餘額總覽</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
+      共 ${S.expenses.length} 筆 · 總花費 ${fmtTWD(total)} · 匯率 ₩1 = NT$${S.krwRate}
+    </div>
+    <div class="bal-row">${bHTML}</div>
+  `;
+
+  // Settlement
+  const txns=calcSettle(net);
+  const sHTML=txns.length===0
+    ?`<div class="settle-empty">🎉 大家都結清了！</div>`
+    :txns.map(t=>`<div class="settle-item">
+        <span class="si-from">👤 ${t.from}</span>
+        <span class="si-arrow">→</span>
+        <span class="si-to">👤 ${t.to}</span>
+        <span class="si-amt">${fmtTWD(t.amount)}</span>
+      </div>`).join('');
+  document.getElementById('secSettle').innerHTML=`<div class="exp-title">🧮 最優結算方式</div>${sHTML}`;
+
+  // List
+  if(S.expenses.length===0){
+    document.getElementById('secList').innerHTML=`<div class="exp-title">📋 消費記錄</div><div class="empty"><div class="empty-icon">🧾</div><div class="empty-txt">還沒有消費記錄<br>點右下角 ＋ 開始新增</div></div>`;
+    return;
+  }
+  const lHTML=S.expenses.map(exp=>{
+    const parts=Array.isArray(exp.participants)?exp.participants:[];
+    const twd=toTWD(exp.amount,exp.currency);
+    const dc=DAY_CLR[exp.day_num]||'';
+    const dn=DAY_NM[exp.day_num]||'';
+    return `<div class="exp-item">
+      <div class="ei-icon">${expEmoji(exp.name)}</div>
+      <div class="ei-body">
+        <div class="ei-name">${exp.name}${dn?`<span class="day-badge" style="background:${dc}22;color:${dc}">${dn}</span>`:''}</div>
+        <div class="ei-meta">${exp.payer} 付 · ÷ ${parts.length}人${parts.length?` (${parts.join('、')})`:''}${exp.note?' · '+exp.note:''}</div>
+      </div>
+      <div class="ei-right">
+        <div class="ei-amt">${fmtAmt(exp.amount,exp.currency)}</div>
+        <div class="ei-twd">≈${fmtTWD(twd)}</div>
+      </div>
+      <button class="ei-del" onclick="doDelete(${exp.id})">🗑️</button>
+    </div>`;
+  }).join('');
+  document.getElementById('secList').innerHTML=`<div class="exp-title">📋 消費記錄（${S.expenses.length} 筆）</div>${lHTML}`;
+}
+
+async function doDelete(id){
+  if(!confirm('確定刪除這筆消費？'))return;
+  await delExpense(id); renderExpenses();
+}
+
+// ═══════════════════════════════════════════
+//  ADD EXPENSE MODAL
+// ═══════════════════════════════════════════
+function openAddExpense(){
+  if(S.members.length===0){alert('請先在設定中新增成員！'); openSettings(); return;}
+  S.selParts=new Set(S.members);
+  renderChips(); updateSplitPreview();
+  // Set payer default to myName
+  const p=document.getElementById('ePayer');
+  p.innerHTML=S.members.map(m=>`<option value="${m}" ${m===S.myName?'selected':''}>${m}</option>`).join('');
+  document.getElementById('eDay').value=String(S.day+1);
+  openModal('ovExp');
+}
+
+function setCurr(c){
+  S.curr=c;
+  document.getElementById('cKRW').classList.toggle('active',c==='KRW');
+  document.getElementById('cTWD').classList.toggle('active',c==='TWD');
+}
+
+function renderChips(){
+  document.getElementById('chipRow').innerHTML=S.members.map(m=>
+    `<div class="chip ${S.selParts.has(m)?'on':''}" onclick="toggleChip('${m}')">${m}</div>`
+  ).join('');
+}
+function toggleChip(m){
+  S.selParts.has(m)?S.selParts.delete(m):S.selParts.add(m);
+  renderChips(); updateSplitPreview();
+}
+function updateSplitPreview(){
+  const amt=parseFloat(document.getElementById('eAmt')?.value||0);
+  const n=S.selParts.size;
+  const el=document.getElementById('splitPreview');
+  if(amt>0 && n>0){
+    const share=toTWD(amt,S.curr)/n;
+    el.textContent=`每人 ${fmtTWD(share)}`;
+  } else {
+    el.textContent='';
+  }
+}
+document.addEventListener('input',e=>{if(e.target.id==='eAmt')updateSplitPreview();});
+
+async function submitExpense(){
+  const name=document.getElementById('eName').value.trim();
+  const amt=parseFloat(document.getElementById('eAmt').value);
+  const payer=document.getElementById('ePayer').value;
+  const dayNum=parseInt(document.getElementById('eDay').value);
+  const note=document.getElementById('eNote').value.trim();
+  const parts=[...S.selParts];
+  if(!name){alert('請輸入消費名稱');return;}
+  if(!amt||amt<=0){alert('請輸入有效金額');return;}
+  if(!payer){alert('請選擇付款人');return;}
+  if(parts.length===0){alert('請至少選擇一位分攤對象');return;}
+  const btn=document.getElementById('addBtn');
+  btn.textContent='儲存中…'; btn.disabled=true;
+  try{
+    await postExpense({name,amount:amt,currency:S.curr,payer,participants:parts,day_num:dayNum,note});
+    await loadExpenses(); renderExpenses();
+    closeModal('ovExp');
+    document.getElementById('eName').value='';
+    document.getElementById('eAmt').value='';
+    document.getElementById('eNote').value='';
+    setCurr('KRW');
+  }catch(e){alert('儲存失敗，請重試');}
+  finally{btn.textContent='✅ 新增消費'; btn.disabled=false;}
+}
+
+// ═══════════════════════════════════════════
+//  SETTINGS
+// ═══════════════════════════════════════════
+function openSettings(){
+  renderMlist();
+  document.getElementById('krwRateInput').value=S.krwRate;
+  document.getElementById('myNameSel').innerHTML=
+    ['',...S.members].map(m=>`<option value="${m}" ${m===S.myName?'selected':''}>${m||'（未設定）'}</option>`).join('');
+  openModal('ovSet');
+}
+function renderMlist(){
+  const el=document.getElementById('mlist');
+  if(!S.members.length){el.innerHTML=`<div style="color:var(--muted);font-size:13px;padding:6px 0">尚未新增成員</div>`;return;}
+  el.innerHTML=S.members.map((m,i)=>`
+    <div class="mitem">
+      <div class="mname">${m}</div>
+      <button class="mdel" onclick="removeMember(${i})">✕</button>
+    </div>`).join('');
+}
+function addMember(){
+  const inp=document.getElementById('newMember');
+  const n=inp.value.trim();
+  if(!n)return;
+  if(S.members.includes(n)){alert('成員已存在');return;}
+  S.members.push(n); inp.value=''; renderMlist();
+  const sel=document.getElementById('myNameSel');
+  sel.innerHTML=['', ...S.members].map(m=>`<option value="${m}" ${m===S.myName?'selected':''}>${m||'（未設定）'}</option>`).join('');
+}
+function removeMember(i){S.members.splice(i,1); renderMlist();}
+async function saveSettings(){
+  const rate=parseFloat(document.getElementById('krwRateInput').value);
+  if(!isNaN(rate)&&rate>0) S.krwRate=rate;
+  S.myName=document.getElementById('myNameSel').value;
+  localStorage.setItem('bsMyName',S.myName);
+  const btn=document.getElementById('saveSetBtn');
+  btn.textContent='儲存中…'; btn.disabled=true;
+  try{
+    await postConfig({members:S.members,krw_rate:S.krwRate});
+    closeModal('ovSet'); renderExpenses();
+  }catch(e){alert('儲存失敗');}
+  finally{btn.textContent='💾 儲存設定'; btn.disabled=false;}
+}
+
+// ═══════════════════════════════════════════
+//  MODAL HELPERS
+// ═══════════════════════════════════════════
+function openModal(id){document.getElementById(id).classList.add('open'); document.body.style.overflow='hidden';}
+function closeModal(id){document.getElementById(id).classList.remove('open'); document.body.style.overflow='';}
+function overlayClick(e,id){if(e.target===document.getElementById(id))closeModal(id);}
+</script>
+</body>
+</html>
