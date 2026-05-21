@@ -31,6 +31,9 @@ def init_db():
             day_num     INTEGER NOT NULL,
             time        TEXT DEFAULT '',
             name        TEXT NOT NULL,
+            map_name    TEXT DEFAULT '',
+            google_map_url TEXT DEFAULT '',
+            show_on_map INTEGER DEFAULT 1,
             lat         REAL, lng REAL,
             description TEXT DEFAULT '',
             tags        TEXT DEFAULT '[]',
@@ -51,6 +54,13 @@ def init_db():
         )''')
         conn.execute("INSERT OR IGNORE INTO config VALUES ('members','[]')")
         conn.execute("INSERT OR IGNORE INTO config VALUES ('krw_rate','0.023')")
+        cols = {row['name'] for row in conn.execute('PRAGMA table_info(spots)').fetchall()}
+        if 'map_name' not in cols:
+            conn.execute("ALTER TABLE spots ADD COLUMN map_name TEXT DEFAULT ''")
+        if 'google_map_url' not in cols:
+            conn.execute("ALTER TABLE spots ADD COLUMN google_map_url TEXT DEFAULT ''")
+        if 'show_on_map' not in cols:
+            conn.execute('ALTER TABLE spots ADD COLUMN show_on_map INTEGER DEFAULT 1')
 
 init_db()
 
@@ -137,13 +147,16 @@ def add_spot():
     if not d: return jsonify({"ok": False}), 400
     try:
         with get_db() as conn:
-            conn.execute(
-                'INSERT INTO spots (day_num,time,name,lat,lng,description,tags,order_idx) VALUES (?,?,?,?,?,?,?,?)',
+            cur = conn.execute(
+                'INSERT INTO spots (day_num,time,name,map_name,google_map_url,show_on_map,lat,lng,description,tags,order_idx) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
                 (int(d.get('day_num',1)), d.get('time',''),
-                 d['name'], d.get('lat'), d.get('lng'),
+                 d['name'], d.get('map_name') or d.get('mapName') or d['name'],
+                 d.get('google_map_url') or d.get('googleMapUrl') or '',
+                 1 if d.get('show_on_map', True) else 0,
+                 d.get('lat'), d.get('lng'),
                  d.get('description',''), json.dumps(d.get('tags',[])), 999)
             )
-        return jsonify({"ok": True})
+        return jsonify({"ok": True, "id": cur.lastrowid})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
