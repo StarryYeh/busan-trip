@@ -152,15 +152,8 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
 .finput:focus{border-color:#FF6B6B66}
 .frow{display:flex;gap:8px}
 .frow .fg{flex:1}
-.time-picker-row{
-  display:grid;
-  grid-template-columns:1fr 1fr 1fr;
-  gap:8px;
-}
-
-.time-select{
-  text-align:center;
-}
+.time-picker-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.time-select{text-align:center}
 .curr-toggle{display:flex;background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
 .curr-btn{flex:1;padding:11px 8px;border:none;background:none;color:var(--muted);cursor:pointer;font-size:13px;font-weight:700;transition:all .2s}
 .curr-btn.active{background:var(--border);color:var(--text)}
@@ -262,7 +255,8 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
 </div>
 
 <!-- FAB -->
-<button class="fab" id="fab" onclick="handleFabClick()" title="新增">＋</button>
+<button class="fab" id="fab" onclick="handleFabClick()" title="新增景點">＋</button>
+
 <!-- ── MODAL: ADD SPOT ── -->
 <div class="overlay" id="ovSpot" onclick="overlayClick(event,'ovSpot')">
   <div class="sheet">
@@ -272,7 +266,6 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
       <button class="sheet-close" onclick="closeModal('ovSpot')">✕</button>
     </div>
     <div class="sheet-body">
-
       <div class="frow">
         <div class="fg">
           <label class="flabel">Day</label>
@@ -284,77 +277,25 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
             <option value="5">Day 5 · 返程</option>
           </select>
         </div>
-<div class="fg">
-  <label class="flabel">時間</label>
-  <div class="time-picker-row">
-    <select class="finput time-select" id="sAmpm">
-      <option value="AM">AM</option>
-      <option value="PM">PM</option>
-    </select>
-
-    <select class="finput time-select" id="sHour">
-      <option value="12">12</option>
-      <option value="1">1</option>
-      <option value="2">2</option>
-      <option value="3">3</option>
-      <option value="4">4</option>
-      <option value="5">5</option>
-      <option value="6">6</option>
-      <option value="7">7</option>
-      <option value="8">8</option>
-      <option value="9">9</option>
-      <option value="10">10</option>
-      <option value="11">11</option>
-    </select>
-
-    <select class="finput time-select" id="sMinute">
-      <option value="00">00</option>
-      <option value="10">10</option>
-      <option value="20">20</option>
-      <option value="30">30</option>
-      <option value="40">40</option>
-      <option value="50">50</option>
-    </select>
-  </div>
-</div>
-      </div>
-
-      <div class="fg">
-        <label class="flabel">景點名稱</label>
-        <input class="finput" id="sName" placeholder="例：Liberta cafe" type="text">
-      </div>
-
-      <div class="fg">
-        <label class="flabel">Google Map URL</label>
-        <input class="finput" id="sGoogleUrl" placeholder="貼上 Google Maps 分享連結" type="url">
-      </div>
-
-      <div class="fg">
-        <label class="flabel">備註</label>
-        <textarea class="finput" id="sDesc" placeholder="例：營業時間、訂位資訊、票券備註" rows="3"></textarea>
-      </div>
-
-      <div class="fg">
-        <label class="flabel">標籤</label>
-        <input class="finput" id="sTags" placeholder="例：美食,打卡,必去" type="text">
-        <div style="font-size:11px;color:var(--muted);margin-top:4px">用逗號分隔，例如：美食,打卡</div>
-      </div>
-
-      <div class="frow">
         <div class="fg">
-          <label class="flabel">緯度，可選</label>
-          <input class="finput" id="sLat" placeholder="可不填" type="number" step="any">
-        </div>
-        <div class="fg">
-          <label class="flabel">經度，可選</label>
-          <input class="finput" id="sLng" placeholder="可不填" type="number" step="any">
+          <label class="flabel">時間</label>
+          <div class="time-picker-row">
+            <select class="finput time-select" id="sAmpm"><option value="AM">AM</option><option value="PM">PM</option></select>
+            <select class="finput time-select" id="sHour"><option value="12">12</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10" selected>10</option><option value="11">11</option></select>
+            <select class="finput time-select" id="sMinute"><option value="00">00</option><option value="10">10</option><option value="20">20</option><option value="30">30</option><option value="40">40</option><option value="50">50</option></select>
+          </div>
         </div>
       </div>
-
+      <div class="fg"><label class="flabel">景點名稱</label><input class="finput" id="sName" placeholder="例：Liberta cafe" type="text"></div>
+      <div class="fg"><label class="flabel">Google Map URL</label><input class="finput" id="sGoogleUrl" placeholder="貼上 Google Maps 分享連結" type="url"></div>
+      <div class="fg"><label class="flabel">備註</label><textarea class="finput" id="sDesc" placeholder="例：營業時間、訂位資訊、票券備註" rows="3"></textarea></div>
+      <div class="fg"><label class="flabel">標籤</label><input class="finput" id="sTags" placeholder="例：美食,打卡,必去" type="text"><div style="font-size:11px;color:var(--muted);margin-top:4px">用逗號分隔，例如：美食,打卡</div></div>
+      <div class="frow"><div class="fg"><label class="flabel">緯度，可選</label><input class="finput" id="sLat" placeholder="可不填" type="number" step="any"></div><div class="fg"><label class="flabel">經度，可選</label><input class="finput" id="sLng" placeholder="可不填" type="number" step="any"></div></div>
       <button class="sbtn" id="addSpotBtn" onclick="submitSpot()">新增景點</button>
     </div>
   </div>
 </div>
+
 <!-- ── MODAL: ADD EXPENSE ── -->
 <div class="overlay" id="ovExp" onclick="overlayClick(event,'ovExp')">
   <div class="sheet">
@@ -529,7 +470,7 @@ const S={
 // ═══════════════════════════════════════════
 //  BOOT
 // ═══════════════════════════════════════════
-let map, markers=[], polys=[];
+let map, markers=[], polys=[], markerBySpotIndex={};
 
 document.addEventListener('DOMContentLoaded', async ()=>{
   initMap();
@@ -537,10 +478,9 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   renderDay(0);
   await loadConfig();
   await loadExpenses();
+  await loadSpots();
   startPoll();
-
   document.getElementById('fab').classList.remove('hidden');
-  document.getElementById('fab').onclick = openAddSpot;
   document.getElementById('fab').title = '新增景點';
 });
 
@@ -574,6 +514,7 @@ async function delExpense(id){
 async function postConfig(d){
   await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
 }
+
 async function postSpot(d){
   const r = await fetch('/api/spots',{
     method:'POST',
@@ -582,6 +523,41 @@ async function postSpot(d){
   });
   return r.json();
 }
+async function loadSpots(){
+  try{
+    const r = await fetch('/api/spots');
+    const dbSpots = await r.json();
+    if(!Array.isArray(dbSpots)) return;
+    mergeDbSpots(dbSpots);
+  }catch(e){
+    console.warn('load spots fail', e);
+  }
+}
+function mergeDbSpots(dbSpots){
+  DAYS.forEach(day=>{ day.spots = day.spots.filter(sp=>!sp.fromDb); });
+  dbSpots.forEach(sp=>{
+    const dayIndex = Number(sp.day_num || 1) - 1;
+    if(!DAYS[dayIndex]) return;
+    const desc = sp.description || '';
+    const googleMatch = desc.match(/Google Map:\s*(https?:\/\/\S+)/);
+    const googleMapUrl = sp.google_map_url || sp.googleMapUrl || (googleMatch ? googleMatch[1] : '');
+    DAYS[dayIndex].spots.push({
+      id: sp.id,
+      fromDb: true,
+      time: sp.time || '',
+      name: sp.name || '未命名景點',
+      mapName: sp.map_name || sp.mapName || sp.name || '',
+      googleMapUrl,
+      emoji: '📍',
+      lat: sp.lat ? Number(sp.lat) : null,
+      lng: sp.lng ? Number(sp.lng) : null,
+      desc,
+      tags: Array.isArray(sp.tags) ? sp.tags : []
+    });
+  });
+  renderDay(S.day);
+}
+
 function setSyncing(on,err=false){
   const dot=document.getElementById('syncDot');
   const txt=document.getElementById('syncTxt');
@@ -612,19 +588,18 @@ function mkIcon(color,emoji,active=false){
 function mapLinks(sp){
   const placeName = sp.mapName || sp.name || '';
   const googleQuery = encodeURIComponent(`${placeName} Busan South Korea`);
-
-  return {
-    google: sp.googleMapUrl || `https://www.google.com/maps/search/?api=1&query=${googleQuery}`
-  };
+  return { google: sp.googleMapUrl || `https://www.google.com/maps/search/?api=1&query=${googleQuery}` };
 }
 
 function renderDay(i){
   S.day=i; S.spot=null;
-  markers.forEach(m=>map.removeLayer(m)); markers=[];
+  markers.forEach(m=>map.removeLayer(m)); markers=[]; markerBySpotIndex={};
   polys.forEach(p=>map.removeLayer(p)); polys=[];
-  const day=DAYS[i], valid=day.spots.filter(s=>s.lat && s.lng), bounds=[];
-  valid.forEach((sp,si)=>{
+  const day=DAYS[i], bounds=[];
+  day.spots.forEach((sp,si)=>{
+    if(!(sp.lat && sp.lng)) return;
     const m=L.marker([sp.lat,sp.lng],{icon:mkIcon(day.color,sp.emoji)}).addTo(map);
+    markerBySpotIndex[si] = m;
     const links = mapLinks(sp);
     m.bindPopup(`
       <div class="lp">
@@ -632,14 +607,13 @@ function renderDay(i){
         <div class="pn">${sp.name}</div>
         <div class="pt">${sp.time}</div>
         ${sp.desc?`<div class="pd">${sp.desc}</div>`:''}
-        <div class="map-link-row">
-          <a class="map-link-btn" href="${links.google}" target="_blank" rel="noopener">Google Map</a>
-        </div>
+        <div class="map-link-row"><a class="map-link-btn" href="${links.google}" target="_blank" rel="noopener">Google Map</a></div>
       </div>
     `,{maxWidth:240});
     m.on('click',()=>setSpot(i,si));
     markers.push(m); bounds.push([sp.lat,sp.lng]);
   });
+  const valid=day.spots.filter(s=>s.lat && s.lng);
   if(valid.length>1){
     const poly=L.polyline(valid.map(s=>[s.lat,s.lng]),{color:day.color,weight:2.5,opacity:.5,dashArray:'6,8'}).addTo(map);
     polys.push(poly);
@@ -651,10 +625,16 @@ function setSpot(di,si){
   S.day=di; S.spot=si;
   const day=DAYS[di];
   const sp=day.spots[si];
-  markers.forEach((m,i)=>m.setIcon(mkIcon(day.color,day.spots[i].emoji,i===si)));
-  if(sp.lat && sp.lng){
+  Object.entries(markerBySpotIndex).forEach(([idx,m])=>{
+    const sourceSpot=day.spots[Number(idx)];
+    if(sourceSpot) m.setIcon(mkIcon(day.color,sourceSpot.emoji,Number(idx)===si));
+  });
+  if(sp.lat && sp.lng && markerBySpotIndex[si]){
     map.flyTo([sp.lat,sp.lng],17,{animate:true,duration:.7});
-    setTimeout(()=>markers[si]?.openPopup(),450);
+    setTimeout(()=>markerBySpotIndex[si]?.openPopup(),450);
+  }else if(sp.googleMapUrl){
+    const openMap=confirm('這個景點目前沒有地圖座標，要直接打開 Google Map 嗎？');
+    if(openMap) window.open(sp.googleMapUrl,'_blank','noopener');
   }
   renderTimeline(si);
   document.querySelector(`[data-tl="${si}"]`)?.scrollIntoView({behavior:'smooth',block:'nearest'});
@@ -704,13 +684,12 @@ function renderTimeline(hi=-1){
 }
 function toggleDrawer(){S.drawerOpen=!S.drawerOpen; document.getElementById('tlDrawer').classList.toggle('open',S.drawerOpen);}
 function closeDrawer(){S.drawerOpen=false; document.getElementById('tlDrawer').classList.remove('open');}
+
 function handleFabClick(){
-  if(S.tab === 'map'){
-    openAddSpot();
-  }else{
-    openAddExpense();
-  }
+  if(S.tab === 'map') openAddSpot();
+  else openAddExpense();
 }
+
 // ═══════════════════════════════════════════
 //  TAB SWITCHING
 // ═══════════════════════════════════════════
@@ -846,6 +825,7 @@ async function doDelete(id){
   if(!confirm('確定刪除這筆消費？'))return;
   await delExpense(id); renderExpenses();
 }
+
 // ═══════════════════════════════════════════
 //  ADD SPOT MODAL
 // ═══════════════════════════════════════════
@@ -862,69 +842,30 @@ function openAddSpot(){
   document.getElementById('sLng').value = '';
   openModal('ovSpot');
 }
-
 async function submitSpot(){
   const dayNum = parseInt(document.getElementById('sDay').value,10);
-  const ampm = document.getElementById('sAmpm').value;
-  const hour = document.getElementById('sHour').value;
-  const minute = document.getElementById('sMinute').value;
-  const time = `${ampm} ${hour}:${minute}`;
+  const time = `${document.getElementById('sAmpm').value} ${document.getElementById('sHour').value}:${document.getElementById('sMinute').value}`;
   const name = document.getElementById('sName').value.trim();
   const googleMapUrl = document.getElementById('sGoogleUrl').value.trim();
   const description = document.getElementById('sDesc').value.trim();
   const tagText = document.getElementById('sTags').value.trim();
   const latRaw = document.getElementById('sLat').value;
   const lngRaw = document.getElementById('sLng').value;
-
-  if(!name){
-    alert('請輸入景點名稱');
-    return;
-  }
-
-  const tags = tagText
-    ? tagText.split(',').map(t=>t.trim()).filter(Boolean)
-    : [];
-
-  const payload = {
-    day_num: dayNum,
-    time,
-    name,
-    description,
-    tags
-  };
-
-  if(latRaw && lngRaw){
-    payload.lat = parseFloat(latRaw);
-    payload.lng = parseFloat(lngRaw);
-  }
-
-  // 目前 app.py 的 spots table 還沒有 googleMapUrl 欄位，
-  // 先把 Google Map URL 存進 description，下一步我們會正式加欄位。
-  if(googleMapUrl){
-    payload.description = description
-      ? `${description}\nGoogle Map: ${googleMapUrl}`
-      : `Google Map: ${googleMapUrl}`;
-  }
-
-  const btn = document.getElementById('addSpotBtn');
-  btn.textContent = '儲存中…';
-  btn.disabled = true;
-
+  if(!name){ alert('請輸入景點名稱'); return; }
+  const tags = tagText ? tagText.split(',').map(t=>t.trim()).filter(Boolean) : [];
+  const payload = { day_num: dayNum, time, name, map_name: name, google_map_url: googleMapUrl, description, tags };
+  if(latRaw && lngRaw){ payload.lat = parseFloat(latRaw); payload.lng = parseFloat(lngRaw); }
+  const btn = document.getElementById('addSpotBtn'); btn.textContent = '儲存中…'; btn.disabled = true;
   try{
     const res = await postSpot(payload);
-    if(!res.ok){
-      throw new Error(res.error || '新增失敗');
-    }
-
+    if(!res.ok) throw new Error(res.error || '新增失敗');
     closeModal('ovSpot');
-    alert('景點已新增！下一步我們會把景點列表改成從資料庫讀取，新增後就會直接出現在畫面上。');
-  }catch(e){
-    alert(`新增失敗：${e.message}`);
-  }finally{
-    btn.textContent = '新增景點';
-    btn.disabled = false;
-  }
+    await loadSpots();
+    alert('景點已新增，已更新到行程列表。');
+  }catch(e){ alert(`新增失敗：${e.message}`); }
+  finally{ btn.textContent = '新增景點'; btn.disabled = false; }
 }
+
 // ═══════════════════════════════════════════
 //  ADD EXPENSE MODAL
 // ═══════════════════════════════════════════
