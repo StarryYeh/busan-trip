@@ -489,9 +489,14 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
       </div>
       <div class="fg">
         <label class="flabel">連結景點（選填）</label>
-        <select class="finput" id="fSpot">
-          <option value="0">（不連結景點）</option>
-        </select>
+        <div style="display:flex;gap:8px">
+          <select class="finput" id="fSpotDay" style="flex:1" onchange="onSpotDayChange()">
+            <option value="">— 選擇天數 —</option>
+          </select>
+          <select class="finput" id="fSpotSpot" style="flex:2" disabled>
+            <option value="0">（不連結景點）</option>
+          </select>
+        </div>
       </div>
       <div class="upload-drop" id="uploadDrop" onclick="document.getElementById('fileInput').click()">
         <div class="upload-drop-icon">📁</div>
@@ -976,17 +981,34 @@ function getSpotById(id){
   return null;
 }
 function openFileUpload(){
-  // 填入景點清單
-  const sel = document.getElementById('fSpot');
-  sel.innerHTML = '<option value="0">（不連結景點）</option>';
+  // 填入天數下拉
+  const dayEl = document.getElementById('fSpotDay');
+  dayEl.innerHTML = '<option value="">— 選擇天數 —</option>';
   DAYS.forEach((day,di)=>{
-    day.spots.forEach(sp=>{
-      if(sp.id) sel.innerHTML+=`<option value="${sp.id}">Day ${di+1} · ${sp.name}</option>`;
-    });
+    dayEl.innerHTML += `<option value="${di}">Day ${di+1}（${day.date} ${day.theme}）</option>`;
   });
+  // 重置景點下拉
+  const spotEl = document.getElementById('fSpotSpot');
+  spotEl.innerHTML = '<option value="0">（不連結景點）</option>';
+  spotEl.disabled = true;
   document.getElementById('fName').value='';
   document.getElementById('uploadStatus').textContent='';
   openModal('ovFile');
+}
+function onSpotDayChange(){
+  const di = document.getElementById('fSpotDay').value;
+  const spotEl = document.getElementById('fSpotSpot');
+  if(di === ''){
+    spotEl.innerHTML = '<option value="0">（不連結景點）</option>';
+    spotEl.disabled = true;
+    return;
+  }
+  const day = DAYS[parseInt(di)];
+  spotEl.innerHTML = '<option value="0">（不連結景點）</option>';
+  (day?.spots||[]).forEach(sp=>{
+    if(sp.id) spotEl.innerHTML += `<option value="${sp.id}">${sp.time ? sp.time+' · ' : ''}${sp.name}</option>`;
+  });
+  spotEl.disabled = false;
 }
 async function loadFiles(){
   try{
@@ -1038,7 +1060,7 @@ async function handleFileSelect(input){
   if(!file) return;
   const cat=document.getElementById('fCat').value;
   const displayName=document.getElementById('fName').value.trim();
-  const spotId=document.getElementById('fSpot').value;
+  const spotId=document.getElementById('fSpotSpot').value;
   const status=document.getElementById('uploadStatus');
   status.textContent='上傳中…';
   const fd=new FormData();
