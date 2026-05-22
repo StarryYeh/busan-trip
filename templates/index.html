@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script>
 <style>
 /* ── RESET & VARS ── */
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -64,10 +65,46 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
 /* Timeline items */
 .tl-item{display:flex;gap:8px;padding:8px;border-radius:10px;cursor:pointer;transition:background .15s;position:relative}
 .tl-item:hover,.tl-item.active{background:var(--card)}
+.tl-drag{width:14px;cursor:grab;color:var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0 2px;transition:color .15s}
+.tl-drag:active{cursor:grabbing}
+.tl-item:hover .tl-drag{color:var(--muted)}
+.tl-item.sortable-ghost{opacity:.35;background:var(--card)!important}
+.tl-item.sortable-chosen{box-shadow:0 4px 16px rgba(26,35,64,.1)}
 .tl-acts{display:flex;gap:4px;margin-top:6px}
 .tl-act{padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--muted);cursor:pointer;font-size:11px;font-weight:600;transition:all .15s}
 .tl-act:hover{border-color:var(--text);color:var(--text)}
 .tl-act.del:hover{border-color:var(--red);color:var(--red);background:#EF444411}
+
+/* Files view */
+.file-grid{display:flex;flex-direction:column;gap:8px}
+.file-card{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.file-icon{font-size:24px;flex-shrink:0;width:36px;text-align:center}
+.file-body{flex:1;min-width:0}
+.file-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.file-cat{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;margin-top:4px;background:var(--card);color:var(--muted)}
+.file-actions{display:flex;gap:6px;flex-shrink:0}
+.file-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .15s;text-decoration:none}
+.file-btn:hover{border-color:var(--text);color:var(--text)}
+.file-btn.del:hover{border-color:var(--red);color:var(--red);background:#EF444411}
+.upload-drop{border:2px dashed var(--border);border-radius:14px;padding:28px 16px;text-align:center;color:var(--muted);cursor:pointer;transition:all .2s;margin-bottom:12px}
+.upload-drop:hover,.upload-drop.dragover{border-color:#FF6B6B;color:#FF6B6B;background:#FF6B6B08}
+.upload-drop-icon{font-size:32px;margin-bottom:8px}
+.upload-drop-txt{font-size:13px;font-weight:600}
+.upload-drop-sub{font-size:11px;margin-top:4px}
+
+/* Expense onboarding */
+.onboard-wrap{padding:20px 16px}
+.onboard-card{background:linear-gradient(135deg,#F0F4FF,#F8FAFF);border:1px solid var(--border);border-radius:20px;padding:24px 20px}
+.onboard-hero{text-align:center;margin-bottom:20px}
+.onboard-hero-icon{font-size:44px;margin-bottom:10px}
+.onboard-hero-title{font-size:19px;font-weight:800;color:var(--text)}
+.onboard-hero-sub{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.6}
+.onboard-steps{display:flex;flex-direction:column;gap:14px;margin-bottom:22px}
+.onboard-step{display:flex;align-items:flex-start;gap:12px}
+.ob-num{width:28px;height:28px;border-radius:50%;color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.ob-title{font-size:14px;font-weight:700;color:var(--text)}
+.ob-desc{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.5}
 .tl-line{display:flex;flex-direction:column;align-items:center;width:26px;flex-shrink:0}
 .tl-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:2px solid transparent;flex-shrink:0;transition:transform .2s}
 .tl-item.active .tl-dot{transform:scale(1.2)}
@@ -246,9 +283,20 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
 
   <!-- EXPENSE VIEW -->
   <div id="view-expense" class="view" style="overflow-y:auto">
+    <div id="secOnboard"></div>
     <div class="exp-section" id="secBalances"></div>
     <div class="exp-section" id="secSettle"></div>
     <div class="exp-section" id="secList"></div>
+    <div class="exp-spacer"></div>
+  </div>
+
+  <!-- FILES VIEW -->
+  <div id="view-files" class="view" style="overflow-y:auto">
+    <div class="exp-section">
+      <div class="exp-title">旅遊文件</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">機票、訂房確認、景點票券等重要文件</div>
+      <div class="file-grid" id="fileGrid"></div>
+    </div>
     <div class="exp-spacer"></div>
   </div>
 
@@ -261,6 +309,9 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
   </button>
   <button class="btab" id="btab-expense" onclick="switchTab('expense')">
     <span class="btab-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20"/><circle cx="16" cy="16" r="1.5" fill="currentColor" stroke="none"/></svg></span><span>分帳記帳</span>
+  </button>
+  <button class="btab" id="btab-files" onclick="switchTab('files')">
+    <span class="btab-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></span><span>票券文件</span>
   </button>
 </div>
 
@@ -393,6 +444,36 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
         <button class="sbtn" id="reseedBtn" onclick="reseedSpots()" style="background:linear-gradient(135deg,#EF4444,#F87171)">🔄 重置為基礎行程</button>
         <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5">將清空所有景點，重新載入 app 內建的預設行程。自己新增的景點會消失。</div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: UPLOAD FILE ── -->
+<div class="overlay" id="ovFile" onclick="overlayClick(event,'ovFile')">
+  <div class="sheet">
+    <div class="sheet-handle" onclick="closeModal('ovFile')"></div>
+    <div class="sheet-head">
+      <div class="sheet-title">上傳文件</div>
+      <button class="sheet-close" onclick="closeModal('ovFile')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="fg">
+        <label class="flabel">文件類型</label>
+        <select class="finput" id="fCat">
+          <option value="flight">✈️ 機票</option>
+          <option value="hotel">🏨 訂房確認</option>
+          <option value="ticket">🎟️ 景點票券</option>
+          <option value="transport">🚌 交通票券</option>
+          <option value="other">📎 其他</option>
+        </select>
+      </div>
+      <div class="upload-drop" id="uploadDrop" onclick="document.getElementById('fileInput').click()">
+        <div class="upload-drop-icon">📁</div>
+        <div class="upload-drop-txt">點此選擇檔案</div>
+        <div class="upload-drop-sub">支援 PDF、JPG、PNG，最大 12 MB</div>
+      </div>
+      <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.heic,.heif" style="display:none" onchange="handleFileSelect(this)">
+      <div id="uploadStatus" style="font-size:13px;color:var(--muted);text-align:center;min-height:20px"></div>
     </div>
   </div>
 </div>
@@ -695,7 +776,14 @@ function tlHTML(hi=-1){
   return day.spots.map((sp,i)=>{
     const isLast=i===day.spots.length-1;
     const tags=(sp.tags||[]).map(t=>`<span class="tl-tag" style="background:${TAG_C[t]||'#555'}22;color:${TAG_C[t]||'#aaa'};border:1px solid ${TAG_C[t]||'#555'}44">${t}</span>`).join('');
-    return `<div class="tl-item ${i===hi?'active':''}" data-tl="${i}" onclick="setSpot(${S.day},${i})">
+    return `<div class="tl-item ${i===hi?'active':''}" data-tl="${i}" data-spot-id="${sp.id||''}" onclick="setSpot(${S.day},${i})">
+      <div class="tl-drag" onclick="event.stopPropagation()">
+        <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+          <circle cx="3" cy="3" r="1.5"/><circle cx="7" cy="3" r="1.5"/>
+          <circle cx="3" cy="8" r="1.5"/><circle cx="7" cy="8" r="1.5"/>
+          <circle cx="3" cy="13" r="1.5"/><circle cx="7" cy="13" r="1.5"/>
+        </svg>
+      </div>
       <div class="tl-line">
         <div class="tl-dot" style="background:${day.color}22;color:${day.color};border-color:${day.color}66">${sp.emoji}</div>
         ${!isLast?`<div class="tl-conn" style="background:${day.color}"></div>`:''}
@@ -713,6 +801,7 @@ function tlHTML(hi=-1){
     </div>`;
   }).join('');
 }
+let _sortable = null;
 function renderTimeline(hi=-1){
   const h=tlHTML(hi);
   document.getElementById('tlDesk').innerHTML=h;
@@ -721,13 +810,32 @@ function renderTimeline(hi=-1){
   mob.querySelectorAll('.tl-item').forEach((el,i)=>{
     el.onclick=()=>{setSpot(S.day,i); closeDrawer();};
   });
+  initSortable();
+}
+function initSortable(){
+  if(_sortable){ _sortable.destroy(); _sortable=null; }
+  const el = document.getElementById('tlDesk');
+  if(!el || typeof Sortable === 'undefined') return;
+  _sortable = Sortable.create(el, {
+    handle: '.tl-drag',
+    animation: 150,
+    ghostClass: 'sortable-ghost',
+    chosenClass: 'sortable-chosen',
+    onEnd: async ()=>{
+      const ids = [...el.querySelectorAll('[data-spot-id]')]
+        .map(n => parseInt(n.dataset.spotId))
+        .filter(id => !isNaN(id) && id > 0);
+      if(!ids.length) return;
+      await fetch('/api/spots/reorder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({order:ids})});
+      await loadSpots();
+    }
+  });
 }
 function toggleDrawer(){S.drawerOpen=!S.drawerOpen; document.getElementById('tlDrawer').classList.toggle('open',S.drawerOpen);}
 function closeDrawer(){S.drawerOpen=false; document.getElementById('tlDrawer').classList.remove('open');}
 
-function handleFabClick(){
-  if(S.tab === 'map') openAddSpot();
-  else openAddExpense();
+function _handleFabClick_REMOVED(){
+  // replaced by switchTab section above
 }
 
 // ═══════════════════════════════════════════
@@ -741,9 +849,96 @@ function switchTab(tab){
   document.getElementById(`btab-${tab}`).classList.add('active');
   document.getElementById('dayTabs').style.display=tab==='map'?'flex':'none';
   document.getElementById('fab').classList.remove('hidden');
-  document.getElementById('fab').title = tab === 'map' ? '新增景點' : '新增消費';
+  const titles={map:'新增景點',expense:'新增消費',files:'上傳文件'};
+  document.getElementById('fab').title = titles[tab]||'';
   if(tab==='expense'){loadExpenses(); closeDrawer();}
+  if(tab==='files'){loadFiles(); closeDrawer();}
   if(tab==='map') setTimeout(()=>map.invalidateSize(),60);
+}
+
+function handleFabClick(){
+  if(S.tab==='map') openAddSpot();
+  else if(S.tab==='expense') openAddExpense();
+  else if(S.tab==='files') openModal('ovFile');
+}
+
+// ═══════════════════════════════════════════
+//  FILES
+// ═══════════════════════════════════════════
+const FILE_CAT = {flight:'✈️ 機票', hotel:'🏨 訂房', ticket:'🎟️ 票券', transport:'🚌 交通', other:'📎 其他'};
+function fileIcon(name){
+  const ext = (name||'').split('.').pop().toLowerCase();
+  if(ext==='pdf') return '📄';
+  if(['jpg','jpeg','png','gif','webp','heic','heif'].includes(ext)) return '🖼️';
+  return '📎';
+}
+function fmtSize(bytes){
+  if(!bytes) return '';
+  if(bytes < 1024) return bytes+'B';
+  if(bytes < 1024*1024) return (bytes/1024).toFixed(0)+'KB';
+  return (bytes/1024/1024).toFixed(1)+'MB';
+}
+async function loadFiles(){
+  try{
+    const r = await fetch('/api/files?ref_type=trip&ref_id=all');
+    // We load all trip files by loading each category
+    const cats = Object.keys(FILE_CAT);
+    const all = [];
+    for(const cat of cats){
+      const res = await fetch(`/api/files?ref_type=trip&ref_id=${cat}`);
+      const files = await res.json();
+      files.forEach(f=>{ f._cat=cat; all.push(f); });
+    }
+    renderFileGrid(all);
+  }catch(e){ console.warn('load files fail',e); }
+}
+function renderFileGrid(files){
+  const el = document.getElementById('fileGrid');
+  if(!files.length){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">📂</div><div class="empty-txt">還沒有上傳文件<br>點右下角 ＋ 上傳機票、訂房或票券</div></div>`;
+    return;
+  }
+  el.innerHTML = files.map(f=>`
+    <div class="file-card">
+      <div class="file-icon">${fileIcon(f.original_name)}</div>
+      <div class="file-body">
+        <div class="file-name">${f.original_name}</div>
+        <div class="file-meta">${fmtSize(f.file_size)} · ${f.uploaded_at?.slice(0,10)||''}</div>
+        <span class="file-cat">${FILE_CAT[f._cat||f.ref_id]||'📎 其他'}</span>
+      </div>
+      <div class="file-actions">
+        <a class="file-btn" href="/uploads/${f.filename}" target="_blank" rel="noopener" title="開啟">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>
+        <button class="file-btn del" onclick="delFile(${f.id})" title="刪除">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        </button>
+      </div>
+    </div>`).join('');
+}
+async function handleFileSelect(input){
+  const file = input.files[0];
+  if(!file) return;
+  const cat = document.getElementById('fCat').value;
+  const status = document.getElementById('uploadStatus');
+  status.textContent = '上傳中…';
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('ref_type', 'trip');
+  fd.append('ref_id', cat);
+  try{
+    const r = await fetch('/api/upload',{method:'POST',body:fd});
+    const res = await r.json();
+    if(!res.ok) throw new Error(res.error||'上傳失敗');
+    status.textContent = '✅ 上傳成功！';
+    input.value='';
+    setTimeout(()=>{ closeModal('ovFile'); loadFiles(); status.textContent=''; },800);
+  }catch(e){ status.textContent='❌ '+e.message; }
+}
+async function delFile(id){
+  if(!confirm('確定刪除這個文件？')) return;
+  await fetch(`/api/files/${id}`,{method:'DELETE'});
+  loadFiles();
 }
 
 // ═══════════════════════════════════════════
@@ -795,11 +990,46 @@ function expEmoji(name){
 
 function renderExpenses(){
   if(S.members.length===0){
-    document.getElementById('secBalances').innerHTML=`<div class="empty"><div class="empty-icon">👥</div><div class="empty-txt">請先點右上角 ⚙️ 設定<br>新增旅遊成員後開始記帳</div></div>`;
+    document.getElementById('secOnboard').innerHTML=`
+      <div class="onboard-wrap">
+        <div class="onboard-card">
+          <div class="onboard-hero">
+            <div class="onboard-hero-icon">✈️</div>
+            <div class="onboard-hero-title">開始分帳記帳</div>
+            <div class="onboard-hero-sub">3 步驟設定完成<br>輕鬆追蹤每個人的花費</div>
+          </div>
+          <div class="onboard-steps">
+            <div class="onboard-step">
+              <div class="ob-num" style="background:#FF6B6B">1</div>
+              <div>
+                <div class="ob-title">新增旅遊成員</div>
+                <div class="ob-desc">把一起出遊的朋友加進來，<br>每人可以看到自己該付多少</div>
+              </div>
+            </div>
+            <div class="onboard-step">
+              <div class="ob-num" style="background:#4ECDC4">2</div>
+              <div>
+                <div class="ob-title">確認韓圜匯率</div>
+                <div class="ob-desc">預設 ₩1 = NT$0.023<br>可在設定中隨時調整</div>
+              </div>
+            </div>
+            <div class="onboard-step">
+              <div class="ob-num" style="background:#45B7D1">3</div>
+              <div>
+                <div class="ob-title">按 ＋ 開始記錄消費</div>
+                <div class="ob-desc">每筆消費自動計算每人應付金額<br>旅程結束一鍵看誰欠誰多少</div>
+              </div>
+            </div>
+          </div>
+          <button class="sbtn" onclick="closeModal('ovSet');openSettings()">⚙️ 立即設定成員 →</button>
+        </div>
+      </div>`;
+    document.getElementById('secBalances').innerHTML='';
     document.getElementById('secSettle').innerHTML='';
     document.getElementById('secList').innerHTML='';
     return;
   }
+  document.getElementById('secOnboard').innerHTML='';
   const {paid,net}=calcBalances();
   const total=S.expenses.reduce((s,e)=>s+toTWD(e.amount,e.currency),0);
 
