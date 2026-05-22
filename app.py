@@ -272,10 +272,16 @@ def get_files():
     ref_type = request.args.get('ref_type','spot')
     ref_id   = request.args.get('ref_id','')
     with get_db() as conn:
-        rows = conn.execute(
-            'SELECT * FROM files WHERE ref_type=? AND ref_id=? ORDER BY uploaded_at DESC',
-            (ref_type, ref_id)
-        ).fetchall()
+        if ref_id:
+            rows = conn.execute(
+                'SELECT * FROM files WHERE ref_type=? AND ref_id=? ORDER BY uploaded_at DESC',
+                (ref_type, ref_id)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                'SELECT * FROM files WHERE ref_type=? ORDER BY uploaded_at DESC',
+                (ref_type,)
+            ).fetchall()
     return jsonify([dict(r) for r in rows])
 
 @app.route('/api/files/<int:fid>', methods=['DELETE'])

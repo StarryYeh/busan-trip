@@ -589,7 +589,8 @@ const S={
   selParts:new Set(),
   drawerOpen:false,
   pollTimer:null,
-  editSpotId:null,  // null=新增模式, number=編輯模式
+  editSpotId:null,
+  filesBySpotId:{},  // spotId → [file, ...]
 };
 
 // ═══════════════════════════════════════════
@@ -604,6 +605,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   await loadConfig();
   await loadExpenses();
   await seedAndLoadSpots();
+  await loadFileIndex();
   startPoll();
   document.getElementById('fab').classList.remove('hidden');
   document.getElementById('fab').title = '新增景點';
@@ -783,6 +785,13 @@ function renderDay(i){
     const m=L.marker([sp.lat,sp.lng],{icon:mkIcon(day.color,sp.emoji)}).addTo(map);
     markerBySpotIndex[si] = m;
     const links = mapLinks(sp);
+    const linkedFiles = (S.filesBySpotId[sp.id]||[]);
+    const fileBtns = linkedFiles.map(f=>
+      `<a class="map-link-btn" href="/uploads/${f.filename}" target="_blank" rel="noopener"
+         style="background:#F0F4FF;color:#4285F4;border:1.5px solid #4285F4AA">
+         📄 ${f.original_name}
+       </a>`
+    ).join('');
     m.bindPopup(`
       <div class="lp">
         <div class="pe">${sp.emoji}</div>
@@ -790,8 +799,9 @@ function renderDay(i){
         <div class="pt">${sp.time}</div>
         ${sp.desc?`<div class="pd">${sp.desc}</div>`:''}
         <div class="map-link-row"><a class="map-link-btn" href="${links.google}" target="_blank" rel="noopener">Google Map</a></div>
+        ${fileBtns?`<div class="map-link-row" style="flex-direction:column;gap:4px">${fileBtns}</div>`:''}
       </div>
-    `,{maxWidth:240});
+    `,{maxWidth:260});
     m.on('click',()=>setSpot(i,si));
     markers.push(m); bounds.push([sp.lat,sp.lng]);
   });
@@ -927,6 +937,20 @@ function handleFabClick(){
   else if(S.tab==='files') openFileUpload();
 }
 
+async function loadFileIndex(){
+  try{
+    const r = await fetch('/api/files?ref_type=trip');
+    const files = await r.json();
+    S.filesBySpotId = {};
+    files.forEach(f=>{
+      if(f.spot_id > 0){
+        if(!S.filesBySpotId[f.spot_id]) S.filesBySpotId[f.spot_id]=[];
+        S.filesBySpotId[f.spot_id].push(f);
+      }
+    });
+  }catch(e){ console.warn('file index fail',e); }
+}
+
 // ═══════════════════════════════════════════
 //  FILES
 // ═══════════════════════════════════════════
@@ -1026,7 +1050,7 @@ async function handleFileSelect(input){
     if(!res.ok) throw new Error(res.error||'上傳失敗');
     status.textContent='✅ 上傳成功！';
     input.value='';
-    setTimeout(()=>{ closeModal('ovFile'); loadFiles(); status.textContent=''; },800);
+    setTimeout(()=>{ closeModal('ovFile'); loadFiles(); loadFileIndex(); status.textContent=''; },800);
   }catch(e){ status.textContent='❌ '+e.message; }
 }
 function navigateToSpot(spotId){
