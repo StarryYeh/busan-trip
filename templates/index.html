@@ -62,8 +62,12 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
 .tl-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 
 /* Timeline items */
-.tl-item{display:flex;gap:8px;padding:8px;border-radius:10px;cursor:pointer;transition:background .15s}
+.tl-item{display:flex;gap:8px;padding:8px;border-radius:10px;cursor:pointer;transition:background .15s;position:relative}
 .tl-item:hover,.tl-item.active{background:var(--card)}
+.tl-acts{display:flex;gap:4px;margin-top:6px}
+.tl-act{padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--muted);cursor:pointer;font-size:11px;font-weight:600;transition:all .15s}
+.tl-act:hover{border-color:var(--text);color:var(--text)}
+.tl-act.del:hover{border-color:var(--red);color:var(--red);background:#EF444411}
 .tl-line{display:flex;flex-direction:column;align-items:center;width:26px;flex-shrink:0}
 .tl-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:2px solid transparent;flex-shrink:0;transition:transform .2s}
 .tl-item.active .tl-dot{transform:scale(1.2)}
@@ -268,7 +272,7 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
   <div class="sheet">
     <div class="sheet-handle" onclick="closeModal('ovSpot')"></div>
     <div class="sheet-head">
-      <div class="sheet-title">新增景點</div>
+      <div class="sheet-title" id="spotModalTitle">新增景點</div>
       <button class="sheet-close" onclick="closeModal('ovSpot')">✕</button>
     </div>
     <div class="sheet-body">
@@ -285,14 +289,13 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
         </div>
         <div class="fg">
           <label class="flabel">時間</label>
-          <div class="time-picker-row">
-            <select class="finput time-select" id="sAmpm"><option value="AM">AM</option><option value="PM">PM</option></select>
-            <select class="finput time-select" id="sHour"><option value="12">12</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10" selected>10</option><option value="11">11</option></select>
-            <select class="finput time-select" id="sMinute"><option value="00">00</option><option value="10">10</option><option value="20">20</option><option value="30">30</option><option value="40">40</option><option value="50">50</option></select>
-          </div>
+          <input class="finput" id="sTime" placeholder="例：09:00 或 下午" type="text">
         </div>
       </div>
-      <div class="fg"><label class="flabel">景點名稱</label><input class="finput" id="sName" placeholder="例：Liberta cafe" type="text"></div>
+      <div class="frow">
+        <div class="fg" style="flex:3"><label class="flabel">景點名稱</label><input class="finput" id="sName" placeholder="例：Liberta cafe" type="text"></div>
+        <div class="fg" style="flex:1"><label class="flabel">圖示</label><input class="finput" id="sEmoji" placeholder="☕" type="text" style="text-align:center;font-size:20px"></div>
+      </div>
       <div class="fg"><label class="flabel">Google Map URL</label><input class="finput" id="sGoogleUrl" placeholder="貼上 Google Maps 分享連結" type="url"></div>
       <div class="fg"><label class="flabel">備註</label><textarea class="finput" id="sDesc" placeholder="例：營業時間、訂位資訊、票券備註" rows="3"></textarea></div>
       <div class="fg"><label class="flabel">標籤</label><input class="finput" id="sTags" placeholder="例：美食,打卡,必去" type="text"><div style="font-size:11px;color:var(--muted);margin-top:4px">用逗號分隔，例如：美食,打卡</div></div>
@@ -471,6 +474,7 @@ const S={
   selParts:new Set(),
   drawerOpen:false,
   pollTimer:null,
+  editSpotId:null,  // null=新增模式, number=編輯模式
 };
 
 // ═══════════════════════════════════════════
@@ -484,7 +488,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   renderDay(0);
   await loadConfig();
   await loadExpenses();
-  await loadSpots();
+  await seedAndLoadSpots();
   startPoll();
   document.getElementById('fab').classList.remove('hidden');
   document.getElementById('fab').title = '新增景點';
@@ -522,46 +526,64 @@ async function postConfig(d){
 }
 
 async function postSpot(d){
-  const r = await fetch('/api/spots',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(d)
-  });
+  const r = await fetch('/api/spots',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
   return r.json();
+}
+async function putSpot(id, d){
+  const r = await fetch(`/api/spots/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
+  return r.json();
+}
+async function seedAndLoadSpots(){
+  // 把 DAYS 硬編資料全部攤開，第一次載入時存入 DB
+  const allSpots = [];
+  DAYS.forEach((day, di)=>{
+    day.spots.forEach((sp, si)=>{
+      allSpots.push({
+        day_num: di+1, time: sp.time||'', name: sp.name||'',
+        map_name: sp.mapName||sp.name||'', google_map_url: sp.googleMapUrl||'',
+        emoji: sp.emoji||'📍', lat: sp.lat||null, lng: sp.lng||null,
+        description: sp.desc||'', tags: sp.tags||[], order_idx: si,
+      });
+    });
+  });
+  try{
+    await fetch('/api/spots/seed',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(allSpots)});
+  }catch(e){ console.warn('seed fail',e); }
+  await loadSpots();
 }
 async function loadSpots(){
   try{
     const r = await fetch('/api/spots');
     const dbSpots = await r.json();
     if(!Array.isArray(dbSpots)) return;
-    mergeDbSpots(dbSpots);
-  }catch(e){
-    console.warn('load spots fail', e);
-  }
+    setAllSpots(dbSpots);
+  }catch(e){ console.warn('load spots fail', e); }
 }
-function mergeDbSpots(dbSpots){
-  DAYS.forEach(day=>{ day.spots = day.spots.filter(sp=>!sp.fromDb); });
+function setAllSpots(dbSpots){
+  // 清空 DAYS，完全由 DB 驅動
+  DAYS.forEach(day=>{ day.spots = []; });
   dbSpots.forEach(sp=>{
-    const dayIndex = Number(sp.day_num || 1) - 1;
-    if(!DAYS[dayIndex]) return;
-    const desc = sp.description || '';
-    const googleMatch = desc.match(/Google Map:\s*(https?:\/\/\S+)/);
-    const googleMapUrl = sp.google_map_url || sp.googleMapUrl || (googleMatch ? googleMatch[1] : '');
-    DAYS[dayIndex].spots.push({
-      id: sp.id,
-      fromDb: true,
-      time: sp.time || '',
-      name: sp.name || '未命名景點',
-      mapName: sp.map_name || sp.mapName || sp.name || '',
-      googleMapUrl,
-      emoji: '📍',
+    const di = Number(sp.day_num||1) - 1;
+    if(!DAYS[di]) return;
+    DAYS[di].spots.push({
+      id: sp.id, fromDb: true,
+      time: sp.time||'', name: sp.name||'未命名',
+      mapName: sp.map_name||sp.name||'',
+      googleMapUrl: sp.google_map_url||'',
+      emoji: sp.emoji||'📍',
       lat: sp.lat ? Number(sp.lat) : null,
       lng: sp.lng ? Number(sp.lng) : null,
-      desc,
-      tags: Array.isArray(sp.tags) ? sp.tags : []
+      desc: sp.description||'',
+      tags: Array.isArray(sp.tags) ? sp.tags : [],
     });
   });
   renderDay(S.day);
+}
+async function deleteSpotUI(id){
+  if(!id){ alert('此景點無法刪除（尚未同步到伺服器）'); return; }
+  if(!confirm('確定刪除這個景點？')) return;
+  await fetch(`/api/spots/${id}`,{method:'DELETE'});
+  await loadSpots();
 }
 
 function setSyncing(on,err=false){
@@ -675,6 +697,10 @@ function tlHTML(hi=-1){
         <div class="tl-name">${sp.name}</div>
         ${sp.desc?`<div class="tl-note">${sp.desc}</div>`:''}
         ${tags?`<div class="tl-tags">${tags}</div>`:''}
+        <div class="tl-acts" onclick="event.stopPropagation()">
+          <button class="tl-act" onclick="openEditSpot(${S.day},${i})">✏️ 編輯</button>
+          <button class="tl-act del" onclick="deleteSpotUI(${sp.id||0})">🗑️ 刪除</button>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -836,11 +862,13 @@ async function doDelete(id){
 //  ADD SPOT MODAL
 // ═══════════════════════════════════════════
 function openAddSpot(){
+  S.editSpotId = null;
+  document.getElementById('spotModalTitle').textContent = '新增景點';
+  document.getElementById('addSpotBtn').textContent = '新增景點';
   document.getElementById('sDay').value = String(S.day + 1);
-  document.getElementById('sAmpm').value = 'AM';
-  document.getElementById('sHour').value = '10';
-  document.getElementById('sMinute').value = '00';
+  document.getElementById('sTime').value = '';
   document.getElementById('sName').value = '';
+  document.getElementById('sEmoji').value = '';
   document.getElementById('sGoogleUrl').value = '';
   document.getElementById('sDesc').value = '';
   document.getElementById('sTags').value = '';
@@ -848,10 +876,28 @@ function openAddSpot(){
   document.getElementById('sLng').value = '';
   openModal('ovSpot');
 }
+function openEditSpot(dayIdx, spotIdx){
+  const sp = DAYS[dayIdx]?.spots[spotIdx];
+  if(!sp){ alert('找不到景點資料'); return; }
+  S.editSpotId = sp.id || null;
+  document.getElementById('spotModalTitle').textContent = '編輯景點';
+  document.getElementById('addSpotBtn').textContent = '儲存變更';
+  document.getElementById('sDay').value = String(dayIdx + 1);
+  document.getElementById('sTime').value = sp.time || '';
+  document.getElementById('sName').value = sp.name || '';
+  document.getElementById('sEmoji').value = sp.emoji || '';
+  document.getElementById('sGoogleUrl').value = sp.googleMapUrl || '';
+  document.getElementById('sDesc').value = sp.desc || '';
+  document.getElementById('sTags').value = (sp.tags||[]).join(',');
+  document.getElementById('sLat').value = sp.lat || '';
+  document.getElementById('sLng').value = sp.lng || '';
+  openModal('ovSpot');
+}
 async function submitSpot(){
   const dayNum = parseInt(document.getElementById('sDay').value,10);
-  const time = `${document.getElementById('sAmpm').value} ${document.getElementById('sHour').value}:${document.getElementById('sMinute').value}`;
+  const time = document.getElementById('sTime').value.trim();
   const name = document.getElementById('sName').value.trim();
+  const emoji = document.getElementById('sEmoji').value.trim() || '📍';
   const googleMapUrl = document.getElementById('sGoogleUrl').value.trim();
   const description = document.getElementById('sDesc').value.trim();
   const tagText = document.getElementById('sTags').value.trim();
@@ -859,17 +905,24 @@ async function submitSpot(){
   const lngRaw = document.getElementById('sLng').value;
   if(!name){ alert('請輸入景點名稱'); return; }
   const tags = tagText ? tagText.split(',').map(t=>t.trim()).filter(Boolean) : [];
-  const payload = { day_num: dayNum, time, name, map_name: name, google_map_url: googleMapUrl, description, tags };
+  const payload = { day_num: dayNum, time, name, map_name: name, google_map_url: googleMapUrl, emoji, description, tags };
   if(latRaw && lngRaw){ payload.lat = parseFloat(latRaw); payload.lng = parseFloat(lngRaw); }
   const btn = document.getElementById('addSpotBtn'); btn.textContent = '儲存中…'; btn.disabled = true;
   try{
-    const res = await postSpot(payload);
-    if(!res.ok) throw new Error(res.error || '新增失敗');
+    let res;
+    if(S.editSpotId){
+      res = await putSpot(S.editSpotId, payload);
+    } else {
+      res = await postSpot(payload);
+    }
+    if(!res.ok) throw new Error(res.error || '儲存失敗');
     closeModal('ovSpot');
     await loadSpots();
-    alert('景點已新增，已更新到行程列表。');
-  }catch(e){ alert(`新增失敗：${e.message}`); }
-  finally{ btn.textContent = '新增景點'; btn.disabled = false; }
+  }catch(e){ alert(`儲存失敗：${e.message}`); }
+  finally{
+    btn.textContent = S.editSpotId ? '儲存變更' : '新增景點';
+    btn.disabled = false;
+  }
 }
 
 // ═══════════════════════════════════════════

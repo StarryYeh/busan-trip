@@ -61,6 +61,8 @@ def init_db():
             conn.execute("ALTER TABLE spots ADD COLUMN google_map_url TEXT DEFAULT ''")
         if 'show_on_map' not in cols:
             conn.execute('ALTER TABLE spots ADD COLUMN show_on_map INTEGER DEFAULT 1')
+        if 'emoji' not in cols:
+            conn.execute("ALTER TABLE spots ADD COLUMN emoji TEXT DEFAULT '📍'")
 
 init_db()
 
@@ -148,10 +150,11 @@ def add_spot():
     try:
         with get_db() as conn:
             cur = conn.execute(
-                'INSERT INTO spots (day_num,time,name,map_name,google_map_url,show_on_map,lat,lng,description,tags,order_idx) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+                'INSERT INTO spots (day_num,time,name,map_name,google_map_url,emoji,show_on_map,lat,lng,description,tags,order_idx) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
                 (int(d.get('day_num',1)), d.get('time',''),
                  d['name'], d.get('map_name') or d.get('mapName') or d['name'],
                  d.get('google_map_url') or d.get('googleMapUrl') or '',
+                 d.get('emoji','📍'),
                  1 if d.get('show_on_map', True) else 0,
                  d.get('lat'), d.get('lng'),
                  d.get('description',''), json.dumps(d.get('tags',[])), 999)
@@ -164,6 +167,44 @@ def add_spot():
 def delete_spot(sid):
     with get_db() as conn:
         conn.execute('DELETE FROM spots WHERE id=?', (sid,))
+    return jsonify({"ok": True})
+
+@app.route('/api/spots/<int:sid>', methods=['PUT'])
+def update_spot(sid):
+    d = request.get_json()
+    if not d: return jsonify({"ok": False}), 400
+    try:
+        with get_db() as conn:
+            conn.execute(
+                'UPDATE spots SET day_num=?,time=?,name=?,map_name=?,google_map_url=?,emoji=?,lat=?,lng=?,description=?,tags=? WHERE id=?',
+                (int(d.get('day_num', 1)), d.get('time', ''),
+                 d['name'], d.get('map_name') or d.get('name', ''),
+                 d.get('google_map_url', ''), d.get('emoji', '📍'),
+                 d.get('lat'), d.get('lng'),
+                 d.get('description', ''), json.dumps(d.get('tags', [])), sid)
+            )
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route('/api/spots/seed', methods=['POST'])
+def seed_spots():
+    spots = request.get_json()
+    if not spots: return jsonify({"ok": False}), 400
+    with get_db() as conn:
+        count = conn.execute('SELECT COUNT(*) as c FROM spots').fetchone()['c']
+        if count > 0:
+            return jsonify({"ok": True, "skipped": True})
+        for s in spots:
+            conn.execute(
+                'INSERT INTO spots (day_num,time,name,map_name,google_map_url,emoji,show_on_map,lat,lng,description,tags,order_idx) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+                (int(s.get('day_num', 1)), s.get('time', ''), s['name'],
+                 s.get('map_name', '') or s['name'],
+                 s.get('google_map_url', ''), s.get('emoji', '📍'), 1,
+                 s.get('lat'), s.get('lng'),
+                 s.get('description', ''), json.dumps(s.get('tags', [])),
+                 int(s.get('order_idx', 999)))
+            )
     return jsonify({"ok": True})
 
 @app.route('/api/spots/reorder', methods=['POST'])
