@@ -187,6 +187,18 @@ def update_spot(sid):
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
+def _do_seed(conn, spots):
+    for s in spots:
+        conn.execute(
+            'INSERT INTO spots (day_num,time,name,map_name,google_map_url,emoji,show_on_map,lat,lng,description,tags,order_idx) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+            (int(s.get('day_num', 1)), s.get('time', ''), s['name'],
+             s.get('map_name', '') or s['name'],
+             s.get('google_map_url', ''), s.get('emoji', '📍'), 1,
+             s.get('lat'), s.get('lng'),
+             s.get('description', ''), json.dumps(s.get('tags', [])),
+             int(s.get('order_idx', 999)))
+        )
+
 @app.route('/api/spots/seed', methods=['POST'])
 def seed_spots():
     spots = request.get_json()
@@ -195,16 +207,17 @@ def seed_spots():
         count = conn.execute('SELECT COUNT(*) as c FROM spots').fetchone()['c']
         if count > 0:
             return jsonify({"ok": True, "skipped": True})
-        for s in spots:
-            conn.execute(
-                'INSERT INTO spots (day_num,time,name,map_name,google_map_url,emoji,show_on_map,lat,lng,description,tags,order_idx) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-                (int(s.get('day_num', 1)), s.get('time', ''), s['name'],
-                 s.get('map_name', '') or s['name'],
-                 s.get('google_map_url', ''), s.get('emoji', '📍'), 1,
-                 s.get('lat'), s.get('lng'),
-                 s.get('description', ''), json.dumps(s.get('tags', [])),
-                 int(s.get('order_idx', 999)))
-            )
+        _do_seed(conn, spots)
+    return jsonify({"ok": True})
+
+@app.route('/api/spots/reseed', methods=['POST'])
+def reseed_spots():
+    """強制清空並重新塞入基礎行程（只有在設定頁面觸發）"""
+    spots = request.get_json()
+    if not spots: return jsonify({"ok": False}), 400
+    with get_db() as conn:
+        conn.execute('DELETE FROM spots')
+        _do_seed(conn, spots)
     return jsonify({"ok": True})
 
 @app.route('/api/spots/reorder', methods=['POST'])
