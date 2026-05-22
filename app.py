@@ -63,6 +63,10 @@ def init_db():
             conn.execute('ALTER TABLE spots ADD COLUMN show_on_map INTEGER DEFAULT 1')
         if 'emoji' not in cols:
             conn.execute("ALTER TABLE spots ADD COLUMN emoji TEXT DEFAULT '📍'")
+        # files table migration
+        fcols = {row['name'] for row in conn.execute('PRAGMA table_info(files)').fetchall()}
+        if 'spot_id' not in fcols:
+            conn.execute('ALTER TABLE files ADD COLUMN spot_id INTEGER DEFAULT 0')
 
 init_db()
 
@@ -175,14 +179,17 @@ def update_spot(sid):
     if not d: return jsonify({"ok": False}), 400
     try:
         with get_db() as conn:
-            conn.execute(
-                'UPDATE spots SET day_num=?,time=?,name=?,map_name=?,google_map_url=?,emoji=?,lat=?,lng=?,description=?,tags=? WHERE id=?',
-                (int(d.get('day_num', 1)), d.get('time', ''),
-                 d['name'], d.get('map_name') or d.get('name', ''),
-                 d.get('google_map_url', ''), d.get('emoji', '📍'),
-                 d.get('lat'), d.get('lng'),
-                 d.get('description', ''), json.dumps(d.get('tags', [])), sid)
-            )
+            fields = 'day_num=?,time=?,name=?,map_name=?,google_map_url=?,emoji=?,description=?,tags=?'
+            params = [int(d.get('day_num', 1)), d.get('time', ''),
+                      d['name'], d.get('map_name') or d.get('name', ''),
+                      d.get('google_map_url', ''), d.get('emoji', '📍'),
+                      d.get('description', ''), json.dumps(d.get('tags', []))]
+            if d.get('lat') is not None:
+                fields += ',lat=?'; params.append(d['lat'])
+            if d.get('lng') is not None:
+                fields += ',lng=?'; params.append(d['lng'])
+            params.append(sid)
+            conn.execute(f'UPDATE spots SET {fields} WHERE id=?', params)
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
@@ -248,10 +255,15 @@ def upload():
         fp.write(data)
     ref_type = request.form.get('ref_type', 'spot')
     ref_id   = request.form.get('ref_id', '')
+    display_name = request.form.get('display_name', '').strip()
+    spot_id = request.form.get('spot_id', '0')
+    try: spot_id = int(spot_id)
+    except: spot_id = 0
+    label = display_name if display_name else secure_filename(f.filename)
     with get_db() as conn:
         conn.execute(
-            'INSERT INTO files (ref_type,ref_id,filename,original_name,file_size) VALUES (?,?,?,?,?)',
-            (ref_type, ref_id, fname, secure_filename(f.filename), len(data))
+            'INSERT INTO files (ref_type,ref_id,filename,original_name,file_size,spot_id) VALUES (?,?,?,?,?,?)',
+            (ref_type, ref_id, fname, label, len(data), spot_id)
         )
     return jsonify({"ok": True, "filename": fname, "url": f"/uploads/{fname}"})
 

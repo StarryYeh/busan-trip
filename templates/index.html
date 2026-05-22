@@ -340,7 +340,22 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
         </div>
         <div class="fg">
           <label class="flabel">時間</label>
-          <input class="finput" id="sTime" placeholder="例：09:00 或 下午" type="text">
+          <div class="time-picker-row">
+            <select class="finput time-select" id="sAmpm">
+              <option value="上午">上午</option>
+              <option value="下午">下午</option>
+            </select>
+            <select class="finput time-select" id="sHour">
+              <option>6</option><option>7</option><option>8</option><option>9</option>
+              <option>10</option><option>11</option><option>12</option>
+              <option>1</option><option>2</option><option>3</option>
+              <option>4</option><option>5</option>
+            </select>
+            <select class="finput time-select" id="sMinute">
+              <option>00</option><option>10</option><option>20</option>
+              <option>30</option><option>40</option><option>50</option>
+            </select>
+          </div>
         </div>
       </div>
       <div class="frow">
@@ -350,7 +365,6 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
       <div class="fg"><label class="flabel">Google Map URL</label><input class="finput" id="sGoogleUrl" placeholder="貼上 Google Maps 分享連結" type="url"></div>
       <div class="fg"><label class="flabel">備註</label><textarea class="finput" id="sDesc" placeholder="例：營業時間、訂位資訊、票券備註" rows="3"></textarea></div>
       <div class="fg"><label class="flabel">標籤</label><input class="finput" id="sTags" placeholder="例：美食,打卡,必去" type="text"><div style="font-size:11px;color:var(--muted);margin-top:4px">用逗號分隔，例如：美食,打卡</div></div>
-      <div class="frow"><div class="fg"><label class="flabel">緯度，可選</label><input class="finput" id="sLat" placeholder="可不填" type="number" step="any"></div><div class="fg"><label class="flabel">經度，可選</label><input class="finput" id="sLng" placeholder="可不填" type="number" step="any"></div></div>
       <button class="sbtn" id="addSpotBtn" onclick="submitSpot()">新增景點</button>
     </div>
   </div>
@@ -457,14 +471,26 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
       <button class="sheet-close" onclick="closeModal('ovFile')">✕</button>
     </div>
     <div class="sheet-body">
+      <div class="frow">
+        <div class="fg" style="flex:2">
+          <label class="flabel">文件名稱（選填）</label>
+          <input class="finput" id="fName" placeholder="例：去程機票、城市飯店訂房" type="text">
+        </div>
+        <div class="fg">
+          <label class="flabel">文件類型</label>
+          <select class="finput" id="fCat">
+            <option value="flight">✈️ 機票</option>
+            <option value="hotel">🏨 訂房確認</option>
+            <option value="ticket">🎟️ 景點票券</option>
+            <option value="transport">🚌 交通票券</option>
+            <option value="other">📎 其他</option>
+          </select>
+        </div>
+      </div>
       <div class="fg">
-        <label class="flabel">文件類型</label>
-        <select class="finput" id="fCat">
-          <option value="flight">✈️ 機票</option>
-          <option value="hotel">🏨 訂房確認</option>
-          <option value="ticket">🎟️ 景點票券</option>
-          <option value="transport">🚌 交通票券</option>
-          <option value="other">📎 其他</option>
+        <label class="flabel">連結景點（選填）</label>
+        <select class="finput" id="fSpot">
+          <option value="0">（不連結景點）</option>
         </select>
       </div>
       <div class="upload-drop" id="uploadDrop" onclick="document.getElementById('fileInput').click()">
@@ -648,8 +674,42 @@ async function loadSpots(){
     setAllSpots(dbSpots);
   }catch(e){ console.warn('load spots fail', e); }
 }
+function timeToMinutes(t){
+  if(!t) return 9999;
+  const m = t.match(/(\d{1,2}):(\d{2})/);
+  if(m){
+    let h = parseInt(m[1]), min = parseInt(m[2]);
+    if(t.includes('下午') && h < 12) h += 12;
+    if(t.includes('上午') && h === 12) h = 0;
+    return h * 60 + min;
+  }
+  if(/晚上|晚餐/.test(t)) return 1140;
+  if(/下午|咖啡備案/.test(t)) return 840;
+  if(/午餐|brunch/.test(t)) return 720;
+  if(/早午餐|早餐/.test(t)) return 600;
+  if(/逛街/.test(t)) return 780;
+  if(/回程|移動/.test(t)) return 960;
+  if(/預備/.test(t)) return 9990;
+  return 9998;
+}
+function parseTimeStr(t){
+  if(!t) return {ampm:'上午',hour:9,min:'00'};
+  const m = t.match(/(\d{1,2}):(\d{2})/);
+  if(m){
+    let h = parseInt(m[1]);
+    const min = String(Math.floor(parseInt(m[2])/10)*10).padStart(2,'0');
+    const ampm = h >= 12 ? '下午' : '上午';
+    if(h > 12) h -= 12;
+    if(h === 0) h = 12;
+    return {ampm, hour: h, min};
+  }
+  if(/晚/.test(t)) return {ampm:'下午', hour:7, min:'00'};
+  if(/下午/.test(t)) return {ampm:'下午', hour:2, min:'00'};
+  if(/午餐/.test(t)) return {ampm:'下午', hour:12, min:'00'};
+  if(/早/.test(t)) return {ampm:'上午', hour:8, min:'00'};
+  return {ampm:'上午', hour:9, min:'00'};
+}
 function setAllSpots(dbSpots){
-  // 清空 DAYS，完全由 DB 驅動
   DAYS.forEach(day=>{ day.spots = []; });
   dbSpots.forEach(sp=>{
     const di = Number(sp.day_num||1) - 1;
@@ -664,7 +724,12 @@ function setAllSpots(dbSpots){
       lng: sp.lng ? Number(sp.lng) : null,
       desc: sp.description||'',
       tags: Array.isArray(sp.tags) ? sp.tags : [],
+      order_idx: sp.order_idx ?? 999,
     });
+  });
+  // 依時間自動排序（order_idx 相同時以時間為準）
+  DAYS.forEach(day=>{
+    day.spots.sort((a,b)=>timeToMinutes(a.time)-timeToMinutes(b.time));
   });
   renderDay(S.day);
 }
@@ -859,7 +924,7 @@ function switchTab(tab){
 function handleFabClick(){
   if(S.tab==='map') openAddSpot();
   else if(S.tab==='expense') openAddExpense();
-  else if(S.tab==='files') openModal('ovFile');
+  else if(S.tab==='files') openFileUpload();
 }
 
 // ═══════════════════════════════════════════
@@ -867,78 +932,109 @@ function handleFabClick(){
 // ═══════════════════════════════════════════
 const FILE_CAT = {flight:'✈️ 機票', hotel:'🏨 訂房', ticket:'🎟️ 票券', transport:'🚌 交通', other:'📎 其他'};
 function fileIcon(name){
-  const ext = (name||'').split('.').pop().toLowerCase();
+  const ext=(name||'').split('.').pop().toLowerCase();
   if(ext==='pdf') return '📄';
   if(['jpg','jpeg','png','gif','webp','heic','heif'].includes(ext)) return '🖼️';
   return '📎';
 }
 function fmtSize(bytes){
   if(!bytes) return '';
-  if(bytes < 1024) return bytes+'B';
-  if(bytes < 1024*1024) return (bytes/1024).toFixed(0)+'KB';
+  if(bytes<1024) return bytes+'B';
+  if(bytes<1024*1024) return (bytes/1024).toFixed(0)+'KB';
   return (bytes/1024/1024).toFixed(1)+'MB';
+}
+function getSpotById(id){
+  for(let di=0;di<DAYS.length;di++){
+    for(let si=0;si<DAYS[di].spots.length;si++){
+      if(DAYS[di].spots[si].id===id) return {di,si,sp:DAYS[di].spots[si]};
+    }
+  }
+  return null;
+}
+function openFileUpload(){
+  // 填入景點清單
+  const sel = document.getElementById('fSpot');
+  sel.innerHTML = '<option value="0">（不連結景點）</option>';
+  DAYS.forEach((day,di)=>{
+    day.spots.forEach(sp=>{
+      if(sp.id) sel.innerHTML+=`<option value="${sp.id}">Day ${di+1} · ${sp.name}</option>`;
+    });
+  });
+  document.getElementById('fName').value='';
+  document.getElementById('uploadStatus').textContent='';
+  openModal('ovFile');
 }
 async function loadFiles(){
   try{
-    const r = await fetch('/api/files?ref_type=trip&ref_id=all');
-    // We load all trip files by loading each category
-    const cats = Object.keys(FILE_CAT);
-    const all = [];
+    const cats=Object.keys(FILE_CAT), all=[];
     for(const cat of cats){
-      const res = await fetch(`/api/files?ref_type=trip&ref_id=${cat}`);
-      const files = await res.json();
+      const res=await fetch(`/api/files?ref_type=trip&ref_id=${cat}`);
+      const files=await res.json();
       files.forEach(f=>{ f._cat=cat; all.push(f); });
     }
     renderFileGrid(all);
   }catch(e){ console.warn('load files fail',e); }
 }
 function renderFileGrid(files){
-  const el = document.getElementById('fileGrid');
+  const el=document.getElementById('fileGrid');
   if(!files.length){
     el.innerHTML=`<div class="empty"><div class="empty-icon">📂</div><div class="empty-txt">還沒有上傳文件<br>點右下角 ＋ 上傳機票、訂房或票券</div></div>`;
     return;
   }
-  el.innerHTML = files.map(f=>`
-    <div class="file-card">
+  el.innerHTML=files.map(f=>{
+    const linked = f.spot_id ? getSpotById(f.spot_id) : null;
+    const linkedHtml = linked
+      ? `<div style="margin-top:5px"><button onclick="navigateToSpot(${f.spot_id})" style="font-size:11px;color:#4285F4;background:none;border:1px solid #4285F444;border-radius:6px;padding:2px 8px;cursor:pointer;font-weight:600">→ ${linked.sp.name}</button></div>`
+      : '';
+    return `<div class="file-card">
       <div class="file-icon">${fileIcon(f.original_name)}</div>
       <div class="file-body">
         <div class="file-name">${f.original_name}</div>
-        <div class="file-meta">${fmtSize(f.file_size)} · ${f.uploaded_at?.slice(0,10)||''}</div>
+        <div class="file-meta">${fmtSize(f.file_size)} · ${(f.uploaded_at||'').slice(0,10)}</div>
         <span class="file-cat">${FILE_CAT[f._cat||f.ref_id]||'📎 其他'}</span>
+        ${linkedHtml}
       </div>
       <div class="file-actions">
         <a class="file-btn" href="/uploads/${f.filename}" target="_blank" rel="noopener" title="開啟">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         </a>
-        <button class="file-btn del" onclick="delFile(${f.id})" title="刪除">
+        <button class="file-btn del" data-fid="${f.id}" title="刪除">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
         </button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+  // event delegation for delete
+  el.querySelectorAll('.file-btn.del').forEach(btn=>{
+    btn.onclick=async(e)=>{e.stopPropagation(); const id=parseInt(btn.dataset.fid); if(confirm('確定刪除？')){await fetch(`/api/files/${id}`,{method:'DELETE'}); loadFiles();}};
+  });
 }
 async function handleFileSelect(input){
-  const file = input.files[0];
+  const file=input.files[0];
   if(!file) return;
-  const cat = document.getElementById('fCat').value;
-  const status = document.getElementById('uploadStatus');
-  status.textContent = '上傳中…';
-  const fd = new FormData();
-  fd.append('file', file);
-  fd.append('ref_type', 'trip');
-  fd.append('ref_id', cat);
+  const cat=document.getElementById('fCat').value;
+  const displayName=document.getElementById('fName').value.trim();
+  const spotId=document.getElementById('fSpot').value;
+  const status=document.getElementById('uploadStatus');
+  status.textContent='上傳中…';
+  const fd=new FormData();
+  fd.append('file',file); fd.append('ref_type','trip'); fd.append('ref_id',cat);
+  fd.append('display_name',displayName); fd.append('spot_id',spotId);
   try{
-    const r = await fetch('/api/upload',{method:'POST',body:fd});
-    const res = await r.json();
+    const r=await fetch('/api/upload',{method:'POST',body:fd});
+    const res=await r.json();
     if(!res.ok) throw new Error(res.error||'上傳失敗');
-    status.textContent = '✅ 上傳成功！';
+    status.textContent='✅ 上傳成功！';
     input.value='';
     setTimeout(()=>{ closeModal('ovFile'); loadFiles(); status.textContent=''; },800);
   }catch(e){ status.textContent='❌ '+e.message; }
 }
-async function delFile(id){
-  if(!confirm('確定刪除這個文件？')) return;
-  await fetch(`/api/files/${id}`,{method:'DELETE'});
-  loadFiles();
+function navigateToSpot(spotId){
+  const found=getSpotById(spotId);
+  if(!found) return;
+  switchTab('map');
+  renderDay(found.di);
+  setTimeout(()=>setSpot(found.di, found.si),400);
 }
 
 // ═══════════════════════════════════════════
@@ -1085,33 +1181,51 @@ function renderExpenses(){
         <div class="ei-amt">${fmtAmt(exp.amount,exp.currency)}</div>
         <div class="ei-twd">≈${fmtTWD(twd)}</div>
       </div>
-      <button class="ei-del" onclick="doDelete(${exp.id})">🗑️</button>
+      <button class="ei-del" data-eid="${exp.id}">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+      </button>
     </div>`;
   }).join('');
-  document.getElementById('secList').innerHTML=`<div class="exp-title">消費記錄（${S.expenses.length} 筆）</div>${lHTML}`;
-}
-
-async function doDelete(id){
-  if(!confirm('確定刪除這筆消費？'))return;
-  await delExpense(id); renderExpenses();
+  const secList = document.getElementById('secList');
+  secList.innerHTML=`<div class="exp-title">消費記錄（${S.expenses.length} 筆）</div>${lHTML}`;
+  // 用 event delegation 避免 desktop inline onclick 問題
+  secList.querySelectorAll('.ei-del[data-eid]').forEach(btn=>{
+    btn.addEventListener('click', async(e)=>{
+      e.stopPropagation();
+      if(!confirm('確定刪除這筆消費？')) return;
+      await delExpense(parseInt(btn.dataset.eid));
+      renderExpenses();
+    });
+  });
 }
 
 // ═══════════════════════════════════════════
 //  ADD SPOT MODAL
 // ═══════════════════════════════════════════
+function setTimePicker(ampm, hour, min){
+  document.getElementById('sAmpm').value = ampm;
+  document.getElementById('sHour').value = String(hour);
+  document.getElementById('sMinute').value = String(min).padStart(2,'0');
+}
+function getTimeFromPicker(){
+  const ampm = document.getElementById('sAmpm').value;
+  let h = parseInt(document.getElementById('sHour').value);
+  const min = document.getElementById('sMinute').value;
+  if(ampm==='下午' && h!==12) h+=12;
+  if(ampm==='上午' && h===12) h=0;
+  return `${String(h).padStart(2,'0')}:${min}`;
+}
 function openAddSpot(){
   S.editSpotId = null;
   document.getElementById('spotModalTitle').textContent = '新增景點';
   document.getElementById('addSpotBtn').textContent = '新增景點';
   document.getElementById('sDay').value = String(S.day + 1);
-  document.getElementById('sTime').value = '';
+  setTimePicker('上午', 9, '00');
   document.getElementById('sName').value = '';
   document.getElementById('sEmoji').value = '';
   document.getElementById('sGoogleUrl').value = '';
   document.getElementById('sDesc').value = '';
   document.getElementById('sTags').value = '';
-  document.getElementById('sLat').value = '';
-  document.getElementById('sLng').value = '';
   openModal('ovSpot');
 }
 function openEditSpot(dayIdx, spotIdx){
@@ -1121,30 +1235,26 @@ function openEditSpot(dayIdx, spotIdx){
   document.getElementById('spotModalTitle').textContent = '編輯景點';
   document.getElementById('addSpotBtn').textContent = '儲存變更';
   document.getElementById('sDay').value = String(dayIdx + 1);
-  document.getElementById('sTime').value = sp.time || '';
+  const pt = parseTimeStr(sp.time);
+  setTimePicker(pt.ampm, pt.hour, pt.min);
   document.getElementById('sName').value = sp.name || '';
   document.getElementById('sEmoji').value = sp.emoji || '';
   document.getElementById('sGoogleUrl').value = sp.googleMapUrl || '';
   document.getElementById('sDesc').value = sp.desc || '';
   document.getElementById('sTags').value = (sp.tags||[]).join(',');
-  document.getElementById('sLat').value = sp.lat || '';
-  document.getElementById('sLng').value = sp.lng || '';
   openModal('ovSpot');
 }
 async function submitSpot(){
   const dayNum = parseInt(document.getElementById('sDay').value,10);
-  const time = document.getElementById('sTime').value.trim();
+  const time = getTimeFromPicker();
   const name = document.getElementById('sName').value.trim();
   const emoji = document.getElementById('sEmoji').value.trim() || '📍';
   const googleMapUrl = document.getElementById('sGoogleUrl').value.trim();
   const description = document.getElementById('sDesc').value.trim();
   const tagText = document.getElementById('sTags').value.trim();
-  const latRaw = document.getElementById('sLat').value;
-  const lngRaw = document.getElementById('sLng').value;
   if(!name){ alert('請輸入景點名稱'); return; }
   const tags = tagText ? tagText.split(',').map(t=>t.trim()).filter(Boolean) : [];
   const payload = { day_num: dayNum, time, name, map_name: name, google_map_url: googleMapUrl, emoji, description, tags };
-  if(latRaw && lngRaw){ payload.lat = parseFloat(latRaw); payload.lng = parseFloat(lngRaw); }
   const btn = document.getElementById('addSpotBtn'); btn.textContent = '儲存中…'; btn.disabled = true;
   try{
     let res;
