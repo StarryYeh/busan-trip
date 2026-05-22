@@ -127,7 +127,7 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
 /* ── BOTTOM TAB BAR ── */
 .bottom-tabs{height:60px;flex-shrink:0;background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:100}
 .btab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;border:none;background:none;color:var(--muted);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;transition:color .2s;padding:8px}
-.btab-icon{font-size:22px;transition:filter .2s}
+.btab-icon{width:24px;height:24px;display:flex;align-items:center;justify-content:center;transition:filter .2s}.btab-icon svg{width:24px;height:24px}
 .btab.active{color:var(--text)}
 .btab.active .btab-icon{filter:drop-shadow(0 0 8px currentColor)}
 
@@ -187,7 +187,7 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
 .lp{min-width:160px}.lp .pe{font-size:22px;text-align:center;margin-bottom:4px}
 .lp .pn{font-size:13px;font-weight:700}.lp .pt{font-size:11px;color:var(--muted);margin-top:2px}
 .lp .pd{font-size:11px;margin-top:5px;line-height:1.45;color:var(--muted)}
-.map-link-row{display:flex;gap:6px;margin-top:10px}.map-link-btn{flex:1;text-align:center;text-decoration:none;font-size:11px;font-weight:700;padding:7px 8px;border-radius:999px;background:#4285F4;color:#fff;border:none}.map-link-btn:hover{filter:brightness(.92)}
+.map-link-row{display:flex;gap:6px;margin-top:10px}.map-link-btn{flex:1;text-align:center;text-decoration:none;font-size:12px;font-weight:700;padding:8px;border-radius:999px;background:#fff;color:#4285F4;border:1.5px solid #4285F4}.map-link-btn:hover{background:#4285F4;color:#fff}
 
 
 /* Desktop */
@@ -196,7 +196,10 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
   .tl-drawer,.map-fabs{display:none!important}
 }
 @media(max-width:767px){
-  .tl-panel{display:none!important}
+  #view-map .map-body{flex-direction:column}
+  #map{height:45%;flex:none}
+  .tl-panel{display:flex!important;width:100%!important;min-width:unset;height:55%;border-right:none;border-top:1px solid var(--border);order:1}
+  .tl-drawer,.map-fabs{display:none!important}
 }
 </style>
 </head>
@@ -213,7 +216,7 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
     <div class="sync-dot" id="syncDot"></div>
     <span id="syncTxt">已同步</span>
   </div>
-  <button class="hdr-btn" onclick="openSettings()" title="設定">⚙️</button>
+  <button class="hdr-btn" onclick="openSettings()" title="設定"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
 </header>
 
 <!-- DAY TABS -->
@@ -233,7 +236,7 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
       </div>
     </div>
     <div class="map-fabs">
-      <div class="map-fab" onclick="toggleDrawer()">📋</div>
+      <div class="map-fab" onclick="toggleDrawer()"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3.5" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="3.5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="3.5" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg></div>
     </div>
   </div>
 
@@ -250,10 +253,10 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
 <!-- BOTTOM TABS -->
 <div class="bottom-tabs">
   <button class="btab active" id="btab-map" onclick="switchTab('map')">
-    <span class="btab-icon">🗺️</span><span>行程地圖</span>
+    <span class="btab-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M9 3L3 6v15l6-3 6 3 6-3V3l-6 3-6-3z"/><path d="M9 3v15M15 6v15"/></svg></span><span>行程地圖</span>
   </button>
   <button class="btab" id="btab-expense" onclick="switchTab('expense')">
-    <span class="btab-icon">💰</span><span>分帳記帳</span>
+    <span class="btab-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20"/><circle cx="16" cy="16" r="1.5" fill="currentColor" stroke="none"/></svg></span><span>分帳記帳</span>
   </button>
 </div>
 
@@ -304,7 +307,7 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
   <div class="sheet">
     <div class="sheet-handle" onclick="closeModal('ovExp')"></div>
     <div class="sheet-head">
-      <div class="sheet-title">💸 新增消費</div>
+      <div class="sheet-title">新增消費</div>
       <button class="sheet-close" onclick="closeModal('ovExp')">✕</button>
     </div>
     <div class="sheet-body">
@@ -360,7 +363,7 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
   <div class="sheet">
     <div class="sheet-handle" onclick="closeModal('ovSet')"></div>
     <div class="sheet-head">
-      <div class="sheet-title">⚙️ 設定</div>
+      <div class="sheet-title">設定</div>
       <button class="sheet-close" onclick="closeModal('ovSet')">✕</button>
     </div>
     <div class="sheet-body">
@@ -779,7 +782,7 @@ function renderExpenses(){
     </div>`;
   }).join('');
   document.getElementById('secBalances').innerHTML=`
-    <div class="exp-title">💳 餘額總覽</div>
+    <div class="exp-title">餘額總覽</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
       共 ${S.expenses.length} 筆 · 總花費 ${fmtTWD(total)} · 匯率 ₩1 = NT$${S.krwRate}
     </div>
@@ -796,11 +799,11 @@ function renderExpenses(){
         <span class="si-to">👤 ${t.to}</span>
         <span class="si-amt">${fmtTWD(t.amount)}</span>
       </div>`).join('');
-  document.getElementById('secSettle').innerHTML=`<div class="exp-title">🧮 最優結算方式</div>${sHTML}`;
+  document.getElementById('secSettle').innerHTML=`<div class="exp-title">最優結算方式</div>${sHTML}`;
 
   // List
   if(S.expenses.length===0){
-    document.getElementById('secList').innerHTML=`<div class="exp-title">📋 消費記錄</div><div class="empty"><div class="empty-icon">🧾</div><div class="empty-txt">還沒有消費記錄<br>點右下角 ＋ 開始新增</div></div>`;
+    document.getElementById('secList').innerHTML=`<div class="exp-title">消費記錄</div><div class="empty"><div class="empty-icon">🧾</div><div class="empty-txt">還沒有消費記錄<br>點右下角 ＋ 開始新增</div></div>`;
     return;
   }
   const lHTML=S.expenses.map(exp=>{
@@ -821,7 +824,7 @@ function renderExpenses(){
       <button class="ei-del" onclick="doDelete(${exp.id})">🗑️</button>
     </div>`;
   }).join('');
-  document.getElementById('secList').innerHTML=`<div class="exp-title">📋 消費記錄（${S.expenses.length} 筆）</div>${lHTML}`;
+  document.getElementById('secList').innerHTML=`<div class="exp-title">消費記錄（${S.expenses.length} 筆）</div>${lHTML}`;
 }
 
 async function doDelete(id){
