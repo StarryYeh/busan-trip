@@ -1,82 +1,108 @@
 from flask import Flask, jsonify, request, render_template, send_from_directory
-import os, json, sqlite3, uuid
+import os, json, uuid, contextlib
+import psycopg2
+import psycopg2.extras
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
-DB_PATH      = os.path.join(BASE_DIR, 'trip.db')
-UPLOAD_DIR   = os.path.join(BASE_DIR, 'uploads')
-ALLOWED_EXT  = {'pdf','png','jpg','jpeg','gif','webp','heic','heif'}
-MAX_BYTES    = 12 * 1024 * 1024   # 12 MB
+BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_DIR  = os.path.join(BASE_DIR, 'uploads')
+ALLOWED_EXT = {'pdf','png','jpg','jpeg','gif','webp','heic','heif'}
+MAX_BYTES   = 12 * 1024 * 1024   # 12 MB
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+DATABASE_URL = os.environ.get('DATABASE_URL', '')
+
 # ── DB ──────────────────────────────────────────────────────────
+@contextlib.contextmanager
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    conn = psycopg2.connect(DATABASE_URL)
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+def q(conn, sql, params=()):
+    """Execute a query and return the cursor (uses RealDictCursor)."""
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(sql, params)
+    return cur
+
+def col_exists(conn, table, col):
+    cur = q(conn,
+        "SELECT COUNT(*) AS c FROM information_schema.columns "
+        "WHERE table_name=%s AND column_name=%s", (table, col))
+    return cur.fetchone()['c'] > 0
 
 def init_db():
     with get_db() as conn:
-        conn.execute('''CREATE TABLE IF NOT EXISTS expenses (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
-            created_at   TEXT DEFAULT (datetime('now','localtime')),
-            name         TEXT NOT NULL, amount REAL NOT NULL,
-            currency     TEXT DEFAULT 'KRW', payer TEXT NOT NULL,
+        q(conn, '''CREATE TABLE IF NOT EXISTS expenses (
+            id           SERIAL PRIMARY KEY,
+            created_at   TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS'),
+            name         TEXT NOT NULL,
+            amount       FLOAT NOT NULL,
+            currency     TEXT DEFAULT 'KRW',
+            payer        TEXT NOT NULL,
             participants TEXT NOT NULL DEFAULT '[]',
-            day_num      INTEGER DEFAULT 0, note TEXT DEFAULT ''
+            day_num      INTEGER DEFAULT 0,
+            note         TEXT DEFAULT ''
         )''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS spots (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            day_num     INTEGER NOT NULL,
-            time        TEXT DEFAULT '',
-            name        TEXT NOT NULL,
-            map_name    TEXT DEFAULT '',
+        q(conn, '''CREATE TABLE IF NOT EXISTS spots (
+            id             SERIAL PRIMARY KEY,
+            day_num        INTEGER NOT NULL,
+            time           TEXT DEFAULT '',
+            name           TEXT NOT NULL,
+            map_name       TEXT DEFAULT '',
             google_map_url TEXT DEFAULT '',
-            show_on_map INTEGER DEFAULT 1,
-            lat         REAL, lng REAL,
-            description TEXT DEFAULT '',
-            tags        TEXT DEFAULT '[]',
-            order_idx   INTEGER DEFAULT 999,
-            created_at  TEXT DEFAULT (datetime('now','localtime'))
+            show_on_map    INTEGER DEFAULT 1,
+            lat            FLOAT,
+            lng            FLOAT,
+            description    TEXT DEFAULT '',
+            tags           TEXT DEFAULT '[]',
+            order_idx      INTEGER DEFAULT 999,
+            emoji          TEXT DEFAULT '📍',
+            created_at     TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS')
         )''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS files (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        q(conn, '''CREATE TABLE IF NOT EXISTS files (
+            id            SERIAL PRIMARY KEY,
             ref_type      TEXT DEFAULT 'spot',
             ref_id        TEXT NOT NULL,
             filename      TEXT NOT NULL,
             original_name TEXT NOT NULL,
             file_size     INTEGER DEFAULT 0,
-            uploaded_at   TEXT DEFAULT (datetime('now','localtime'))
+            spot_id       INTEGER DEFAULT 0,
+            uploaded_at   TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS')
         )''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS config (
-            key TEXT PRIMARY KEY, value TEXT NOT NULL
+        q(conn, '''CREATE TABLE IF NOT EXISTS config (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL
         )''')
-        conn.execute("INSERT OR IGNORE INTO config VALUES ('members','[]')")
-        conn.execute("INSERT OR IGNORE INTO config VALUES ('krw_rate','0.023')")
-        cols = {row['name'] for row in conn.execute('PRAGMA table_info(spots)').fetchall()}
-        if 'map_name' not in cols:
-            conn.execute("ALTER TABLE spots ADD COLUMN map_name TEXT DEFAULT ''")
-        if 'google_map_url' not in cols:
-            conn.execute("ALTER TABLE spots ADD COLUMN google_map_url TEXT DEFAULT ''")
-        if 'show_on_map' not in cols:
-            conn.execute('ALTER TABLE spots ADD COLUMN show_on_map INTEGER DEFAULT 1')
-        if 'emoji' not in cols:
-            conn.execute("ALTER TABLE spots ADD COLUMN emoji TEXT DEFAULT '📍'")
-        # shopping table
-        conn.execute('''CREATE TABLE IF NOT EXISTS shopping (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        q(conn, '''CREATE TABLE IF NOT EXISTS shopping (
+            id         SERIAL PRIMARY KEY,
             name       TEXT NOT NULL,
             note       TEXT DEFAULT '',
             price      TEXT DEFAULT '',
             bought     INTEGER DEFAULT 0,
             photo      TEXT DEFAULT '',
-            created_at TEXT DEFAULT (datetime('now','localtime'))
+            created_at TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS')
         )''')
-        # files table migration
-        fcols = {row['name'] for row in conn.execute('PRAGMA table_info(files)').fetchall()}
-        if 'spot_id' not in fcols:
-            conn.execute('ALTER TABLE files ADD COLUMN spot_id INTEGER DEFAULT 0')
+        q(conn, "INSERT INTO config(key,value) VALUES ('members','[]') ON CONFLICT DO NOTHING")
+        q(conn, "INSERT INTO config(key,value) VALUES ('krw_rate','0.023') ON CONFLICT DO NOTHING")
+        # Column migrations
+        migrations = [
+            ('spots', 'map_name',       "TEXT DEFAULT ''"),
+            ('spots', 'google_map_url', "TEXT DEFAULT ''"),
+            ('spots', 'show_on_map',    'INTEGER DEFAULT 1'),
+            ('spots', 'emoji',          "TEXT DEFAULT '📍'"),
+            ('files', 'spot_id',        'INTEGER DEFAULT 0'),
+        ]
+        for table, col, defn in migrations:
+            if not col_exists(conn, table, col):
+                q(conn, f'ALTER TABLE {table} ADD COLUMN {col} {defn}')
 
 init_db()
 
@@ -89,7 +115,7 @@ def index():
 @app.route('/api/expenses', methods=['GET'])
 def get_expenses():
     with get_db() as conn:
-        rows = conn.execute('SELECT * FROM expenses ORDER BY created_at DESC').fetchall()
+        rows = q(conn, 'SELECT * FROM expenses ORDER BY created_at DESC').fetchall()
     out = []
     for r in rows:
         d = dict(r)
@@ -104,8 +130,8 @@ def add_expense():
     if not d: return jsonify({"ok": False}), 400
     try:
         with get_db() as conn:
-            conn.execute(
-                'INSERT INTO expenses (name,amount,currency,payer,participants,day_num,note) VALUES (?,?,?,?,?,?,?)',
+            q(conn,
+                'INSERT INTO expenses (name,amount,currency,payer,participants,day_num,note) VALUES (%s,%s,%s,%s,%s,%s,%s)',
                 (d['name'], float(d['amount']), d.get('currency','KRW'),
                  d['payer'], json.dumps(d.get('participants',[])),
                  int(d.get('day_num',0)), d.get('note',''))
@@ -117,14 +143,14 @@ def add_expense():
 @app.route('/api/expenses/<int:eid>', methods=['DELETE'])
 def delete_expense(eid):
     with get_db() as conn:
-        conn.execute('DELETE FROM expenses WHERE id=?', (eid,))
+        q(conn, 'DELETE FROM expenses WHERE id=%s', (eid,))
     return jsonify({"ok": True})
 
 # ── CONFIG ──────────────────────────────────────────────────────
 @app.route('/api/config', methods=['GET'])
 def get_config():
     with get_db() as conn:
-        rows = conn.execute('SELECT key,value FROM config').fetchall()
+        rows = q(conn, 'SELECT key,value FROM config').fetchall()
     out = {}
     for r in rows:
         try:    out[r['key']] = json.loads(r['value'])
@@ -137,8 +163,9 @@ def update_config():
     if not d: return jsonify({"ok": False}), 400
     with get_db() as conn:
         for k, v in d.items():
-            conn.execute('INSERT OR REPLACE INTO config VALUES (?,?)',
-                         (k, json.dumps(v) if isinstance(v,(list,dict)) else str(v)))
+            val = json.dumps(v) if isinstance(v, (list, dict)) else str(v)
+            q(conn, 'INSERT INTO config(key,value) VALUES (%s,%s) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value',
+              (k, val))
     return jsonify({"ok": True})
 
 # ── SPOTS ───────────────────────────────────────────────────────
@@ -146,9 +173,10 @@ def update_config():
 def get_spots():
     day = request.args.get('day')
     with get_db() as conn:
-        q = 'SELECT * FROM spots WHERE day_num=? ORDER BY order_idx,id' if day else \
-            'SELECT * FROM spots ORDER BY day_num,order_idx,id'
-        rows = conn.execute(q, (int(day),) if day else ()).fetchall()
+        if day:
+            rows = q(conn, 'SELECT * FROM spots WHERE day_num=%s ORDER BY order_idx,id', (int(day),)).fetchall()
+        else:
+            rows = q(conn, 'SELECT * FROM spots ORDER BY day_num,order_idx,id').fetchall()
     out = []
     for r in rows:
         d = dict(r)
@@ -163,8 +191,8 @@ def add_spot():
     if not d: return jsonify({"ok": False}), 400
     try:
         with get_db() as conn:
-            cur = conn.execute(
-                'INSERT INTO spots (day_num,time,name,map_name,google_map_url,emoji,show_on_map,lat,lng,description,tags,order_idx) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+            cur = q(conn,
+                'INSERT INTO spots (day_num,time,name,map_name,google_map_url,emoji,show_on_map,lat,lng,description,tags,order_idx) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id',
                 (int(d.get('day_num',1)), d.get('time',''),
                  d['name'], d.get('map_name') or d.get('mapName') or d['name'],
                  d.get('google_map_url') or d.get('googleMapUrl') or '',
@@ -173,14 +201,15 @@ def add_spot():
                  d.get('lat'), d.get('lng'),
                  d.get('description',''), json.dumps(d.get('tags',[])), 999)
             )
-        return jsonify({"ok": True, "id": cur.lastrowid})
+            new_id = cur.fetchone()['id']
+        return jsonify({"ok": True, "id": new_id})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
 @app.route('/api/spots/<int:sid>', methods=['DELETE'])
 def delete_spot(sid):
     with get_db() as conn:
-        conn.execute('DELETE FROM spots WHERE id=?', (sid,))
+        q(conn, 'DELETE FROM spots WHERE id=%s', (sid,))
     return jsonify({"ok": True})
 
 @app.route('/api/spots/<int:sid>', methods=['PUT'])
@@ -189,43 +218,43 @@ def update_spot(sid):
     if not d: return jsonify({"ok": False}), 400
     try:
         with get_db() as conn:
-            fields = 'day_num=?,time=?,name=?,map_name=?,google_map_url=?,emoji=?,description=?,tags=?'
+            fields = 'day_num=%s,time=%s,name=%s,map_name=%s,google_map_url=%s,emoji=%s,description=%s,tags=%s'
             params = [int(d.get('day_num', 1)), d.get('time', ''),
                       d['name'], d.get('map_name') or d.get('name', ''),
                       d.get('google_map_url', ''), d.get('emoji', '📍'),
                       d.get('description', ''), json.dumps(d.get('tags', []))]
             if d.get('lat') is not None:
-                fields += ',lat=?'; params.append(d['lat'])
+                fields += ',lat=%s'; params.append(d['lat'])
             if d.get('lng') is not None:
-                fields += ',lng=?'; params.append(d['lng'])
+                fields += ',lng=%s'; params.append(d['lng'])
             params.append(sid)
-            conn.execute(f'UPDATE spots SET {fields} WHERE id=?', params)
+            q(conn, f'UPDATE spots SET {fields} WHERE id=%s', params)
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
 def _do_seed(conn, spots):
     for s in spots:
-        sid = s.get('id')  # stable ID from frontend (if provided)
+        sid = s.get('id')
         if sid:
-            conn.execute(
-                'INSERT INTO spots (id,day_num,time,name,map_name,google_map_url,emoji,show_on_map,lat,lng,description,tags,order_idx) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
-                (int(sid), int(s.get('day_num', 1)), s.get('time', ''), s['name'],
-                 s.get('map_name', '') or s['name'],
-                 s.get('google_map_url', ''), s.get('emoji', '📍'), 1,
+            q(conn,
+                'INSERT INTO spots (id,day_num,time,name,map_name,google_map_url,emoji,show_on_map,lat,lng,description,tags,order_idx) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',
+                (int(sid), int(s.get('day_num',1)), s.get('time',''), s['name'],
+                 s.get('map_name','') or s['name'],
+                 s.get('google_map_url',''), s.get('emoji','📍'), 1,
                  s.get('lat'), s.get('lng'),
-                 s.get('description', ''), json.dumps(s.get('tags', [])),
-                 int(s.get('order_idx', 999)))
+                 s.get('description',''), json.dumps(s.get('tags',[])),
+                 int(s.get('order_idx',999)))
             )
         else:
-            conn.execute(
-                'INSERT INTO spots (day_num,time,name,map_name,google_map_url,emoji,show_on_map,lat,lng,description,tags,order_idx) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-                (int(s.get('day_num', 1)), s.get('time', ''), s['name'],
-                 s.get('map_name', '') or s['name'],
-                 s.get('google_map_url', ''), s.get('emoji', '📍'), 1,
+            q(conn,
+                'INSERT INTO spots (day_num,time,name,map_name,google_map_url,emoji,show_on_map,lat,lng,description,tags,order_idx) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',
+                (int(s.get('day_num',1)), s.get('time',''), s['name'],
+                 s.get('map_name','') or s['name'],
+                 s.get('google_map_url',''), s.get('emoji','📍'), 1,
                  s.get('lat'), s.get('lng'),
-                 s.get('description', ''), json.dumps(s.get('tags', [])),
-                 int(s.get('order_idx', 999)))
+                 s.get('description',''), json.dumps(s.get('tags',[])),
+                 int(s.get('order_idx',999)))
             )
 
 @app.route('/api/spots/seed', methods=['POST'])
@@ -233,7 +262,7 @@ def seed_spots():
     spots = request.get_json()
     if not spots: return jsonify({"ok": False}), 400
     with get_db() as conn:
-        count = conn.execute('SELECT COUNT(*) as c FROM spots').fetchone()['c']
+        count = q(conn, 'SELECT COUNT(*) AS c FROM spots').fetchone()['c']
         if count > 0:
             return jsonify({"ok": True, "skipped": True})
         _do_seed(conn, spots)
@@ -241,12 +270,13 @@ def seed_spots():
 
 @app.route('/api/spots/reseed', methods=['POST'])
 def reseed_spots():
-    """強制清空並重新塞入基礎行程（只有在設定頁面觸發）"""
     spots = request.get_json()
     if not spots: return jsonify({"ok": False}), 400
     with get_db() as conn:
-        conn.execute('DELETE FROM spots')
+        q(conn, 'DELETE FROM spots')
         _do_seed(conn, spots)
+        # Reset sequence so new user-added spots don't clash
+        q(conn, "SELECT setval(pg_get_serial_sequence('spots','id'), COALESCE((SELECT MAX(id) FROM spots), 1))")
     return jsonify({"ok": True})
 
 @app.route('/api/spots/reorder', methods=['POST'])
@@ -254,14 +284,14 @@ def reorder_spots():
     d = request.get_json()
     with get_db() as conn:
         for i, sid in enumerate(d.get('order', [])):
-            conn.execute('UPDATE spots SET order_idx=? WHERE id=?', (i, sid))
+            q(conn, 'UPDATE spots SET order_idx=%s WHERE id=%s', (i, sid))
     return jsonify({"ok": True})
 
 # ── SHOPPING ────────────────────────────────────────────────────
 @app.route('/api/shopping', methods=['GET'])
 def get_shopping():
     with get_db() as conn:
-        rows = conn.execute('SELECT * FROM shopping ORDER BY bought ASC, created_at DESC').fetchall()
+        rows = q(conn, 'SELECT * FROM shopping ORDER BY bought ASC, created_at DESC').fetchall()
     return jsonify([dict(r) for r in rows])
 
 @app.route('/api/shopping', methods=['POST'])
@@ -270,11 +300,12 @@ def add_shopping():
     if not d: return jsonify({"ok": False}), 400
     try:
         with get_db() as conn:
-            cur = conn.execute(
-                'INSERT INTO shopping (name,note,price) VALUES (?,?,?)',
+            cur = q(conn,
+                'INSERT INTO shopping (name,note,price) VALUES (%s,%s,%s) RETURNING id',
                 (d['name'], d.get('note',''), d.get('price',''))
             )
-        return jsonify({"ok": True, "id": cur.lastrowid})
+            new_id = cur.fetchone()['id']
+        return jsonify({"ok": True, "id": new_id})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
@@ -284,15 +315,14 @@ def update_shopping(sid):
     if not d: return jsonify({"ok": False}), 400
     try:
         with get_db() as conn:
-            # Build dynamic update
             fields, params = [], []
             for col in ('name','note','price','bought','photo'):
                 if col in d:
-                    fields.append(f'{col}=?')
+                    fields.append(f'{col}=%s')
                     params.append(d[col])
             if not fields: return jsonify({"ok": True})
             params.append(sid)
-            conn.execute(f'UPDATE shopping SET {",".join(fields)} WHERE id=?', params)
+            q(conn, f'UPDATE shopping SET {",".join(fields)} WHERE id=%s', params)
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
@@ -300,11 +330,11 @@ def update_shopping(sid):
 @app.route('/api/shopping/<int:sid>', methods=['DELETE'])
 def delete_shopping(sid):
     with get_db() as conn:
-        row = conn.execute('SELECT photo FROM shopping WHERE id=?',(sid,)).fetchone()
+        row = q(conn, 'SELECT photo FROM shopping WHERE id=%s', (sid,)).fetchone()
         if row and row['photo']:
             p = os.path.join(UPLOAD_DIR, row['photo'])
             if os.path.exists(p): os.remove(p)
-        conn.execute('DELETE FROM shopping WHERE id=?',(sid,))
+        q(conn, 'DELETE FROM shopping WHERE id=%s', (sid,))
     return jsonify({"ok": True})
 
 # ── FILE UPLOAD ──────────────────────────────────────────────────
@@ -325,16 +355,16 @@ def upload():
     fname = f"{uuid.uuid4().hex}.{ext}"
     with open(os.path.join(UPLOAD_DIR, fname), 'wb') as fp:
         fp.write(data)
-    ref_type = request.form.get('ref_type', 'spot')
-    ref_id   = request.form.get('ref_id', '')
+    ref_type     = request.form.get('ref_type', 'spot')
+    ref_id       = request.form.get('ref_id', '')
     display_name = request.form.get('display_name', '').strip()
-    spot_id = request.form.get('spot_id', '0')
+    spot_id      = request.form.get('spot_id', '0')
     try: spot_id = int(spot_id)
     except: spot_id = 0
     label = display_name if display_name else secure_filename(f.filename)
     with get_db() as conn:
-        conn.execute(
-            'INSERT INTO files (ref_type,ref_id,filename,original_name,file_size,spot_id) VALUES (?,?,?,?,?,?)',
+        q(conn,
+            'INSERT INTO files (ref_type,ref_id,filename,original_name,file_size,spot_id) VALUES (%s,%s,%s,%s,%s,%s)',
             (ref_type, ref_id, fname, label, len(data), spot_id)
         )
     return jsonify({"ok": True, "filename": fname, "url": f"/uploads/{fname}"})
@@ -345,13 +375,13 @@ def get_files():
     ref_id   = request.args.get('ref_id','')
     with get_db() as conn:
         if ref_id:
-            rows = conn.execute(
-                'SELECT * FROM files WHERE ref_type=? AND ref_id=? ORDER BY uploaded_at DESC',
+            rows = q(conn,
+                'SELECT * FROM files WHERE ref_type=%s AND ref_id=%s ORDER BY uploaded_at DESC',
                 (ref_type, ref_id)
             ).fetchall()
         else:
-            rows = conn.execute(
-                'SELECT * FROM files WHERE ref_type=? ORDER BY uploaded_at DESC',
+            rows = q(conn,
+                'SELECT * FROM files WHERE ref_type=%s ORDER BY uploaded_at DESC',
                 (ref_type,)
             ).fetchall()
     return jsonify([dict(r) for r in rows])
@@ -359,11 +389,11 @@ def get_files():
 @app.route('/api/files/<int:fid>', methods=['DELETE'])
 def delete_file(fid):
     with get_db() as conn:
-        row = conn.execute('SELECT filename FROM files WHERE id=?',(fid,)).fetchone()
+        row = q(conn, 'SELECT filename FROM files WHERE id=%s', (fid,)).fetchone()
         if row:
             p = os.path.join(UPLOAD_DIR, row['filename'])
             if os.path.exists(p): os.remove(p)
-            conn.execute('DELETE FROM files WHERE id=?',(fid,))
+            q(conn, 'DELETE FROM files WHERE id=%s', (fid,))
     return jsonify({"ok": True})
 
 @app.route('/uploads/<filename>')
