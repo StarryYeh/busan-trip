@@ -1153,12 +1153,10 @@ function onSpotDayChange(){
 }
 async function loadFiles(){
   try{
-    const cats=Object.keys(FILE_CAT), all=[];
-    for(const cat of cats){
-      const res=await fetch(`/api/files?ref_type=trip&ref_id=${cat}`);
-      const files=await res.json();
-      files.forEach(f=>{ f._cat=cat; all.push(f); });
-    }
+    // 一次撈全部 trip 檔案，比分 5 次呼叫更穩定
+    const res=await fetch('/api/files?ref_type=trip');
+    const all=await res.json();
+    all.forEach(f=>{ f._cat=f.ref_id; }); // ref_id 就是分類
     renderFileGrid(all);
   }catch(e){ console.warn('load files fail',e); }
 }
