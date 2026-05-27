@@ -1,17 +1,52 @@
-from flask import Flask, jsonify, request, render_template, send_from_directory
-import os, json, uuid, contextlib
+from flask import Flask, jsonify, request, render_template, send_from_directory, redirect
+import os, json, uuid, contextlib, mimetypes
 import psycopg2
 import psycopg2.extras
 from werkzeug.utils import secure_filename
+from supabase import create_client as _sb_create
 
 app = Flask(__name__)
 BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_DIR  = os.path.join(BASE_DIR, 'uploads')
+UPLOAD_DIR  = os.path.join(BASE_DIR, 'uploads')   # local fallback only
 ALLOWED_EXT = {'pdf','png','jpg','jpeg','gif','webp','heic','heif'}
 MAX_BYTES   = 12 * 1024 * 1024   # 12 MB
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-DATABASE_URL = os.environ.get('DATABASE_URL', '')
+DATABASE_URL     = os.environ.get('DATABASE_URL', '')
+SUPABASE_URL     = os.environ.get('SUPABASE_URL', '')
+SUPABASE_KEY     = os.environ.get('SUPABASE_SERVICE_KEY', '')
+STORAGE_BUCKET   = 'upload'
+
+# Supabase storage client（若未設定 env var 則 fallback 到本地磁碟）
+_sb = _sb_create(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
+
+def storage_upload(fname, data, content_type='application/octet-stream'):
+    """Upload to Supabase Storage; fallback to local disk."""
+    if _sb:
+        _sb.storage.from_(STORAGE_BUCKET).upload(
+            path=fname, file=data,
+            file_options={'content-type': content_type, 'upsert': 'true'}
+        )
+        return _sb.storage.from_(STORAGE_BUCKET).get_public_url(fname)
+    # local fallback
+    with open(os.path.join(UPLOAD_DIR, fname), 'wb') as fp:
+        fp.write(data)
+    return f'/uploads/{fname}'
+
+def storage_delete(fname):
+    """Delete from Supabase Storage; fallback to local disk."""
+    if _sb:
+        try: _sb.storage.from_(STORAGE_BUCKET).remove([fname])
+        except: pass
+    else:
+        p = os.path.join(UPLOAD_DIR, fname)
+        if os.path.exists(p): os.remove(p)
+
+def storage_url(fname):
+    """Return the public URL for a stored file."""
+    if _sb:
+        return _sb.storage.from_(STORAGE_BUCKET).get_public_url(fname)
+    return f'/uploads/{fname}'
 
 # ── DB ──────────────────────────────────────────────────────────
 @contextlib.contextmanager
@@ -334,8 +369,7 @@ def delete_shopping(sid):
     with get_db() as conn:
         row = q(conn, 'SELECT photo FROM shopping WHERE id=%s', (sid,)).fetchone()
         if row and row['photo']:
-            p = os.path.join(UPLOAD_DIR, row['photo'])
-            if os.path.exists(p): os.remove(p)
+            storage_delete(row['photo'])
         q(conn, 'DELETE FROM shopping WHERE id=%s', (sid,))
     return jsonify({"ok": True})
 
@@ -355,8 +389,8 @@ def upload():
         return jsonify({"ok": False, "error": "檔案過大（最大 12 MB）"}), 400
     ext = f.filename.rsplit('.',1)[1].lower()
     fname = f"{uuid.uuid4().hex}.{ext}"
-    with open(os.path.join(UPLOAD_DIR, fname), 'wb') as fp:
-        fp.write(data)
+    content_type = mimetypes.guess_type(f.filename)[0] or 'application/octet-stream'
+    public_url = storage_upload(fname, data, content_type)
     ref_type     = request.form.get('ref_type', 'spot')
     ref_id       = request.form.get('ref_id', '')
     display_name = request.form.get('display_name', '').strip()
@@ -369,7 +403,7 @@ def upload():
             'INSERT INTO files (ref_type,ref_id,filename,original_name,file_size,spot_id) VALUES (%s,%s,%s,%s,%s,%s)',
             (ref_type, ref_id, fname, label, len(data), spot_id)
         )
-    return jsonify({"ok": True, "filename": fname, "url": f"/uploads/{fname}"})
+    return jsonify({"ok": True, "filename": fname, "url": public_url})
 
 @app.route('/api/files')
 def get_files():
@@ -393,13 +427,15 @@ def delete_file(fid):
     with get_db() as conn:
         row = q(conn, 'SELECT filename FROM files WHERE id=%s', (fid,)).fetchone()
         if row:
-            p = os.path.join(UPLOAD_DIR, row['filename'])
-            if os.path.exists(p): os.remove(p)
+            storage_delete(row['filename'])
             q(conn, 'DELETE FROM files WHERE id=%s', (fid,))
     return jsonify({"ok": True})
 
 @app.route('/uploads/<filename>')
 def serve_upload(filename):
+    """Redirect to Supabase Storage public URL, or serve locally as fallback."""
+    if _sb:
+        return redirect(storage_url(filename))
     return send_from_directory(UPLOAD_DIR, filename)
 
 if __name__ == '__main__':
