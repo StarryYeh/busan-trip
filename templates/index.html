@@ -93,6 +93,24 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
 .upload-drop-txt{font-size:13px;font-weight:600}
 .upload-drop-sub{font-size:11px;margin-top:4px}
 
+/* ── SHOP VIEW ── */
+.shop-item{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 12px;margin-bottom:8px;transition:opacity .2s}
+.shop-item.bought{opacity:.45}
+.shop-check{width:22px;height:22px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .2s}
+.shop-check.on{background:var(--green);border-color:var(--green)}
+.shop-thumb{width:52px;height:52px;border-radius:8px;object-fit:cover;flex-shrink:0;cursor:pointer;border:1px solid var(--border)}
+.shop-thumb-ph{width:52px;height:52px;border-radius:8px;flex-shrink:0;background:var(--card);border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--border);font-size:20px;transition:all .2s}
+.shop-thumb-ph:hover{border-color:#FF6B6B;color:#FF6B6B}
+.shop-body{flex:1;min-width:0}
+.shop-name{font-size:13px;font-weight:600;line-height:1.3}
+.shop-item.bought .shop-name{text-decoration:line-through;color:var(--muted)}
+.shop-note{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.4}
+.shop-price{display:inline-block;font-size:11px;font-weight:700;color:#FF6B6B;background:#FF6B6B11;border-radius:8px;padding:1px 7px;margin-top:4px}
+.shop-del{width:30px;height:30px;border-radius:50%;border:none;background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s}
+.shop-del:hover{background:#FF6B6B22;color:var(--red)}
+.shop-stat{font-size:12px;color:var(--muted);margin-bottom:14px;font-weight:500}
+.shop-stat b{color:var(--green)}
+
 /* Expense onboarding */
 .onboard-wrap{padding:20px 16px}
 .onboard-card{background:linear-gradient(135deg,#F0F4FF,#F8FAFF);border:1px solid var(--border);border-radius:20px;padding:24px 20px}
@@ -300,6 +318,16 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
     <div class="exp-spacer"></div>
   </div>
 
+  <!-- SHOP VIEW -->
+  <div id="view-shop" class="view" style="overflow-y:auto">
+    <div class="exp-section">
+      <div class="exp-title">待買清單</div>
+      <div class="shop-stat" id="shopStat"></div>
+      <div id="shopList"></div>
+    </div>
+    <div class="exp-spacer"></div>
+  </div>
+
 </div>
 
 <!-- BOTTOM TABS -->
@@ -312,6 +340,9 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
   </button>
   <button class="btab" id="btab-files" onclick="switchTab('files')">
     <span class="btab-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></span><span>票券文件</span>
+  </button>
+  <button class="btab" id="btab-shop" onclick="switchTab('shop')">
+    <span class="btab-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></span><span>待買清單</span>
   </button>
 </div>
 
@@ -509,6 +540,32 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
   </div>
 </div>
 
+<!-- ── MODAL: ADD SHOP ITEM ── -->
+<div class="overlay" id="ovShop" onclick="overlayClick(event,'ovShop')">
+  <div class="sheet">
+    <div class="sheet-handle" onclick="closeModal('ovShop')"></div>
+    <div class="sheet-head">
+      <div class="sheet-title">新增待買項目</div>
+      <button class="sheet-close" onclick="closeModal('ovShop')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="fg">
+        <label class="flabel">品項名稱</label>
+        <input class="finput" id="shName" placeholder="例：韓系連身裙、歐巴歐尼泡麵" type="text">
+      </div>
+      <div class="fg">
+        <label class="flabel">備註（選填）</label>
+        <input class="finput" id="shNote" placeholder="例：廣安里 V Vanilla 附近、GS25 超市" type="text">
+      </div>
+      <div class="fg">
+        <label class="flabel">預算 / 價格（選填）</label>
+        <input class="finput" id="shPrice" placeholder="例：약 ₩50,000" type="text">
+      </div>
+      <button class="sbtn" onclick="addShopItem()">新增</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════
 //  ITINERARY DATA
@@ -596,6 +653,7 @@ const S={
   pollTimer:null,
   editSpotId:null,
   filesBySpotId:{},  // spotId → [file, ...]
+  shopItems:[],
 };
 
 // ═══════════════════════════════════════════
@@ -656,11 +714,13 @@ async function putSpot(id, d){
   return r.json();
 }
 async function seedAndLoadSpots(){
-  // 把 DAYS 硬編資料全部攤開，第一次載入時存入 DB
+  // 每次開啟 app 都 reseed，確保預設行程永遠在
+  // 使用穩定的遞增 ID，讓 file 連結不會因 reseed 而斷掉
   const allSpots = [];
-  DAYS.forEach((day, di)=>{
+  DEFAULT_DAYS.forEach((day, di)=>{
     day.spots.forEach((sp, si)=>{
       allSpots.push({
+        id: allSpots.length + 1,  // stable 1-based ID
         day_num: di+1, time: sp.time||'', name: sp.name||'',
         map_name: sp.mapName||sp.name||'', google_map_url: sp.googleMapUrl||'',
         emoji: sp.emoji||'📍', lat: sp.lat||null, lng: sp.lng||null,
@@ -669,7 +729,7 @@ async function seedAndLoadSpots(){
     });
   });
   try{
-    await fetch('/api/spots/seed',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(allSpots)});
+    await fetch('/api/spots/reseed',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(allSpots)});
   }catch(e){ console.warn('seed fail',e); }
   await loadSpots();
 }
@@ -929,10 +989,11 @@ function switchTab(tab){
   document.getElementById(`btab-${tab}`).classList.add('active');
   document.getElementById('dayTabs').style.display=tab==='map'?'flex':'none';
   document.getElementById('fab').classList.remove('hidden');
-  const titles={map:'新增景點',expense:'新增消費',files:'上傳文件'};
+  const titles={map:'新增景點',expense:'新增消費',files:'上傳文件',shop:'新增待買'};
   document.getElementById('fab').title = titles[tab]||'';
   if(tab==='expense'){loadExpenses(); closeDrawer();}
   if(tab==='files'){loadFiles(); closeDrawer();}
+  if(tab==='shop'){loadShop(); closeDrawer();}
   if(tab==='map') setTimeout(()=>map.invalidateSize(),60);
 }
 
@@ -940,6 +1001,7 @@ function handleFabClick(){
   if(S.tab==='map') openAddSpot();
   else if(S.tab==='expense') openAddExpense();
   else if(S.tab==='files') openFileUpload();
+  else if(S.tab==='shop') openAddShop();
 }
 
 async function loadFileIndex(){
@@ -1462,6 +1524,113 @@ async function reseedSpots(){
 function openModal(id){document.getElementById(id).classList.add('open'); document.body.style.overflow='hidden';}
 function closeModal(id){document.getElementById(id).classList.remove('open'); document.body.style.overflow='';}
 function overlayClick(e,id){if(e.target===document.getElementById(id))closeModal(id);}
+
+// ═══════════════════════════════════════════
+//  SHOPPING LIST
+// ═══════════════════════════════════════════
+async function loadShop(){
+  try{
+    const r = await fetch('/api/shopping');
+    S.shopItems = await r.json();
+    renderShopList();
+  }catch(e){ console.warn('shop fail',e); }
+}
+
+function renderShopList(){
+  const el = document.getElementById('shopList');
+  const stat = document.getElementById('shopStat');
+  if(!S.shopItems.length){
+    if(stat) stat.textContent = '';
+    el.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--muted)">
+      <div style="font-size:40px;margin-bottom:10px">🛍️</div>
+      <div style="font-size:14px;font-weight:600">還沒有待買項目</div>
+      <div style="font-size:12px;margin-top:4px">點右下角 ＋ 新增想買的東西</div>
+    </div>`;
+    return;
+  }
+  const bought = S.shopItems.filter(i=>i.bought).length;
+  if(stat) stat.innerHTML = `共 ${S.shopItems.length} 項・<b>${bought} 項已購買</b>`;
+  const sorted = [...S.shopItems].sort((a,b)=> a.bought - b.bought);
+  el.innerHTML = sorted.map(item=>{
+    const thumbHtml = item.photo
+      ? `<img class="shop-thumb" src="/uploads/${item.photo}" onclick="window.open('/uploads/${item.photo}','_blank')" alt="">`
+      : `<div class="shop-thumb-ph" onclick="shopPhotoClick(${item.id})">
+           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+         </div>`;
+    const checkIcon = item.bought
+      ? `<svg width="11" height="11" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`
+      : '';
+    return `<div class="shop-item${item.bought?' bought':''}">
+      <div class="shop-check${item.bought?' on':''}" onclick="toggleShopBought(${item.id})">${checkIcon}</div>
+      ${thumbHtml}
+      <div class="shop-body">
+        <div class="shop-name">${item.name}</div>
+        ${item.note ? `<div class="shop-note">${item.note}</div>` : ''}
+        ${item.price ? `<span class="shop-price">${item.price}</span>` : ''}
+      </div>
+      <input type="file" id="shopPh-${item.id}" accept="image/*" style="display:none" onchange="uploadShopPhoto(this,${item.id})">
+      <button class="shop-del" data-shopid="${item.id}" title="刪除">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+      </button>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.shop-del[data-shopid]').forEach(btn=>{
+    btn.onclick = async(e)=>{
+      e.stopPropagation();
+      const id = parseInt(btn.dataset.shopid);
+      if(!confirm('確定刪除這個項目？')) return;
+      await fetch(`/api/shopping/${id}`,{method:'DELETE'});
+      await loadShop();
+    };
+  });
+}
+
+function shopPhotoClick(id){
+  document.getElementById(`shopPh-${id}`)?.click();
+}
+
+async function uploadShopPhoto(input, id){
+  const file = input.files[0];
+  if(!file) return;
+  const fd = new FormData();
+  fd.append('file', file); fd.append('ref_type','shop'); fd.append('ref_id', String(id)); fd.append('spot_id','0');
+  try{
+    const r = await fetch('/api/upload',{method:'POST',body:fd});
+    const res = await r.json();
+    if(!res.ok) throw new Error(res.error||'上傳失敗');
+    await fetch(`/api/shopping/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({photo:res.filename})});
+    await loadShop();
+  }catch(e){ alert('上傳失敗：'+e.message); }
+}
+
+async function toggleShopBought(id){
+  const item = S.shopItems.find(i=>i.id===id);
+  if(!item) return;
+  await fetch(`/api/shopping/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({bought: item.bought ? 0 : 1})});
+  await loadShop();
+}
+
+function openAddShop(){
+  document.getElementById('shName').value='';
+  document.getElementById('shNote').value='';
+  document.getElementById('shPrice').value='';
+  openModal('ovShop');
+  setTimeout(()=>document.getElementById('shName').focus(),350);
+}
+
+async function addShopItem(){
+  const name = document.getElementById('shName').value.trim();
+  if(!name){ alert('請輸入品項名稱'); return; }
+  const note = document.getElementById('shNote').value.trim();
+  const price = document.getElementById('shPrice').value.trim();
+  try{
+    const r = await fetch('/api/shopping',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,note,price})});
+    const res = await r.json();
+    if(!res.ok) throw new Error(res.error);
+    closeModal('ovShop');
+    await loadShop();
+  }catch(e){ alert('新增失敗：'+e.message); }
+}
 </script>
 </body>
 </html>

@@ -63,6 +63,16 @@ def init_db():
             conn.execute('ALTER TABLE spots ADD COLUMN show_on_map INTEGER DEFAULT 1')
         if 'emoji' not in cols:
             conn.execute("ALTER TABLE spots ADD COLUMN emoji TEXT DEFAULT '📍'")
+        # shopping table
+        conn.execute('''CREATE TABLE IF NOT EXISTS shopping (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            name       TEXT NOT NULL,
+            note       TEXT DEFAULT '',
+            price      TEXT DEFAULT '',
+            bought     INTEGER DEFAULT 0,
+            photo      TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now','localtime'))
+        )''')
         # files table migration
         fcols = {row['name'] for row in conn.execute('PRAGMA table_info(files)').fetchall()}
         if 'spot_id' not in fcols:
@@ -196,15 +206,27 @@ def update_spot(sid):
 
 def _do_seed(conn, spots):
     for s in spots:
-        conn.execute(
-            'INSERT INTO spots (day_num,time,name,map_name,google_map_url,emoji,show_on_map,lat,lng,description,tags,order_idx) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-            (int(s.get('day_num', 1)), s.get('time', ''), s['name'],
-             s.get('map_name', '') or s['name'],
-             s.get('google_map_url', ''), s.get('emoji', '📍'), 1,
-             s.get('lat'), s.get('lng'),
-             s.get('description', ''), json.dumps(s.get('tags', [])),
-             int(s.get('order_idx', 999)))
-        )
+        sid = s.get('id')  # stable ID from frontend (if provided)
+        if sid:
+            conn.execute(
+                'INSERT INTO spots (id,day_num,time,name,map_name,google_map_url,emoji,show_on_map,lat,lng,description,tags,order_idx) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                (int(sid), int(s.get('day_num', 1)), s.get('time', ''), s['name'],
+                 s.get('map_name', '') or s['name'],
+                 s.get('google_map_url', ''), s.get('emoji', '📍'), 1,
+                 s.get('lat'), s.get('lng'),
+                 s.get('description', ''), json.dumps(s.get('tags', [])),
+                 int(s.get('order_idx', 999)))
+            )
+        else:
+            conn.execute(
+                'INSERT INTO spots (day_num,time,name,map_name,google_map_url,emoji,show_on_map,lat,lng,description,tags,order_idx) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+                (int(s.get('day_num', 1)), s.get('time', ''), s['name'],
+                 s.get('map_name', '') or s['name'],
+                 s.get('google_map_url', ''), s.get('emoji', '📍'), 1,
+                 s.get('lat'), s.get('lng'),
+                 s.get('description', ''), json.dumps(s.get('tags', [])),
+                 int(s.get('order_idx', 999)))
+            )
 
 @app.route('/api/spots/seed', methods=['POST'])
 def seed_spots():
@@ -233,6 +255,56 @@ def reorder_spots():
     with get_db() as conn:
         for i, sid in enumerate(d.get('order', [])):
             conn.execute('UPDATE spots SET order_idx=? WHERE id=?', (i, sid))
+    return jsonify({"ok": True})
+
+# ── SHOPPING ────────────────────────────────────────────────────
+@app.route('/api/shopping', methods=['GET'])
+def get_shopping():
+    with get_db() as conn:
+        rows = conn.execute('SELECT * FROM shopping ORDER BY bought ASC, created_at DESC').fetchall()
+    return jsonify([dict(r) for r in rows])
+
+@app.route('/api/shopping', methods=['POST'])
+def add_shopping():
+    d = request.get_json()
+    if not d: return jsonify({"ok": False}), 400
+    try:
+        with get_db() as conn:
+            cur = conn.execute(
+                'INSERT INTO shopping (name,note,price) VALUES (?,?,?)',
+                (d['name'], d.get('note',''), d.get('price',''))
+            )
+        return jsonify({"ok": True, "id": cur.lastrowid})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route('/api/shopping/<int:sid>', methods=['PUT'])
+def update_shopping(sid):
+    d = request.get_json()
+    if not d: return jsonify({"ok": False}), 400
+    try:
+        with get_db() as conn:
+            # Build dynamic update
+            fields, params = [], []
+            for col in ('name','note','price','bought','photo'):
+                if col in d:
+                    fields.append(f'{col}=?')
+                    params.append(d[col])
+            if not fields: return jsonify({"ok": True})
+            params.append(sid)
+            conn.execute(f'UPDATE shopping SET {",".join(fields)} WHERE id=?', params)
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route('/api/shopping/<int:sid>', methods=['DELETE'])
+def delete_shopping(sid):
+    with get_db() as conn:
+        row = conn.execute('SELECT photo FROM shopping WHERE id=?',(sid,)).fetchone()
+        if row and row['photo']:
+            p = os.path.join(UPLOAD_DIR, row['photo'])
+            if os.path.exists(p): os.remove(p)
+        conn.execute('DELETE FROM shopping WHERE id=?',(sid,))
     return jsonify({"ok": True})
 
 # ── FILE UPLOAD ──────────────────────────────────────────────────
