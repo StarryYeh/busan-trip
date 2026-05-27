@@ -549,9 +549,17 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
       <button class="sheet-close" onclick="closeModal('ovShop')">✕</button>
     </div>
     <div class="sheet-body">
-      <div class="fg">
-        <label class="flabel">品項名稱</label>
-        <input class="finput" id="shName" placeholder="例：韓系連身裙、歐巴歐尼泡麵" type="text">
+      <div class="frow">
+        <div class="fg" style="flex:2">
+          <label class="flabel">品項名稱</label>
+          <input class="finput" id="shName" placeholder="例：韓系連身裙、歐巴歐尼泡麵" type="text">
+        </div>
+        <div class="fg">
+          <label class="flabel">誰要買</label>
+          <select class="finput" id="shOwner">
+            <option value="">大家</option>
+          </select>
+        </div>
       </div>
       <div class="fg">
         <label class="flabel">備註（選填）</label>
@@ -560,6 +568,22 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
       <div class="fg">
         <label class="flabel">預算 / 價格（選填）</label>
         <input class="finput" id="shPrice" placeholder="例：약 ₩50,000" type="text">
+      </div>
+      <div class="fg">
+        <label class="flabel">參考照片（選填）</label>
+        <div id="shPhotoArea" onclick="document.getElementById('shPhotoInput').click()"
+          style="border:2px dashed var(--border);border-radius:12px;padding:20px;text-align:center;cursor:pointer;transition:all .2s;overflow:hidden">
+          <div id="shPhotoPreview" style="display:none">
+            <img id="shPhotoImg" style="max-height:160px;border-radius:8px;object-fit:contain">
+            <div style="font-size:11px;color:var(--muted);margin-top:6px">點此更換照片</div>
+          </div>
+          <div id="shPhotoPlaceholder">
+            <svg width="28" height="28" fill="none" stroke="var(--border)" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:6px"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <div style="font-size:13px;color:var(--muted);font-weight:600">點此上傳參考照片</div>
+            <div style="font-size:11px;color:var(--border);margin-top:3px">JPG、PNG，最大 12 MB</div>
+          </div>
+        </div>
+        <input type="file" id="shPhotoInput" accept="image/*" style="display:none" onchange="previewShopPhoto(this)">
       </div>
       <button class="sbtn" onclick="addShopItem()">新增</button>
     </div>
@@ -1559,13 +1583,19 @@ function renderShopList(){
     const checkIcon = item.bought
       ? `<svg width="11" height="11" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`
       : '';
+    const ownerBadge = item.owner
+      ? `<span style="display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px;margin-top:4px;background:#4ECDC422;color:#2A9D8F;border:1px solid #4ECDC466">${item.owner}</span>`
+      : `<span style="display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px;margin-top:4px;background:var(--card);color:var(--muted)">大家</span>`;
     return `<div class="shop-item${item.bought?' bought':''}">
       <div class="shop-check${item.bought?' on':''}" onclick="toggleShopBought(${item.id})">${checkIcon}</div>
       ${thumbHtml}
       <div class="shop-body">
         <div class="shop-name">${item.name}</div>
         ${item.note ? `<div class="shop-note">${item.note}</div>` : ''}
-        ${item.price ? `<span class="shop-price">${item.price}</span>` : ''}
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;align-items:center">
+          ${item.price ? `<span class="shop-price">${item.price}</span>` : ''}
+          ${ownerBadge}
+        </div>
       </div>
       <input type="file" id="shopPh-${item.id}" accept="image/*" style="display:none" onchange="uploadShopPhoto(this,${item.id})">
       <button class="shop-del" data-shopid="${item.id}" title="刪除">
@@ -1613,19 +1643,53 @@ function openAddShop(){
   document.getElementById('shName').value='';
   document.getElementById('shNote').value='';
   document.getElementById('shPrice').value='';
+  document.getElementById('shPhotoInput').value='';
+  document.getElementById('shPhotoPreview').style.display='none';
+  document.getElementById('shPhotoPlaceholder').style.display='block';
+  // 填入成員下拉
+  const sel = document.getElementById('shOwner');
+  sel.innerHTML = '<option value="">大家</option>';
+  S.members.forEach(m=>{ sel.innerHTML+=`<option value="${m}">${m}</option>`; });
+  if(S.myName) sel.value = S.myName;
   openModal('ovShop');
   setTimeout(()=>document.getElementById('shName').focus(),350);
+}
+
+function previewShopPhoto(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{
+    document.getElementById('shPhotoImg').src = e.target.result;
+    document.getElementById('shPhotoPreview').style.display='block';
+    document.getElementById('shPhotoPlaceholder').style.display='none';
+    document.getElementById('shPhotoArea').style.borderColor='#FF6B6B';
+  };
+  reader.readAsDataURL(file);
 }
 
 async function addShopItem(){
   const name = document.getElementById('shName').value.trim();
   if(!name){ alert('請輸入品項名稱'); return; }
-  const note = document.getElementById('shNote').value.trim();
+  const note  = document.getElementById('shNote').value.trim();
   const price = document.getElementById('shPrice').value.trim();
+  const owner = document.getElementById('shOwner').value;
+  const photoFile = document.getElementById('shPhotoInput').files[0];
   try{
-    const r = await fetch('/api/shopping',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,note,price})});
+    // 1. 建立項目
+    const r = await fetch('/api/shopping',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,note,price,owner})});
     const res = await r.json();
     if(!res.ok) throw new Error(res.error);
+    // 2. 若有選照片，上傳並更新
+    if(photoFile){
+      const fd = new FormData();
+      fd.append('file', photoFile); fd.append('ref_type','shop'); fd.append('ref_id', String(res.id)); fd.append('spot_id','0');
+      const ur = await fetch('/api/upload',{method:'POST',body:fd});
+      const ures = await ur.json();
+      if(ures.ok){
+        await fetch(`/api/shopping/${res.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({photo:ures.filename})});
+      }
+    }
     closeModal('ovShop');
     await loadShop();
   }catch(e){ alert('新增失敗：'+e.message); }

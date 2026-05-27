@@ -86,6 +86,7 @@ def init_db():
             name       TEXT NOT NULL,
             note       TEXT DEFAULT '',
             price      TEXT DEFAULT '',
+            owner      TEXT DEFAULT '',
             bought     INTEGER DEFAULT 0,
             photo      TEXT DEFAULT '',
             created_at TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS')
@@ -99,6 +100,7 @@ def init_db():
             ('spots', 'show_on_map',    'INTEGER DEFAULT 1'),
             ('spots', 'emoji',          "TEXT DEFAULT '📍'"),
             ('files', 'spot_id',        'INTEGER DEFAULT 0'),
+            ('shopping', 'owner',       "TEXT DEFAULT ''"),
         ]
         for table, col, defn in migrations:
             if not col_exists(conn, table, col):
@@ -301,8 +303,8 @@ def add_shopping():
     try:
         with get_db() as conn:
             cur = q(conn,
-                'INSERT INTO shopping (name,note,price) VALUES (%s,%s,%s) RETURNING id',
-                (d['name'], d.get('note',''), d.get('price',''))
+                'INSERT INTO shopping (name,note,price,owner) VALUES (%s,%s,%s,%s) RETURNING id',
+                (d['name'], d.get('note',''), d.get('price',''), d.get('owner',''))
             )
             new_id = cur.fetchone()['id']
         return jsonify({"ok": True, "id": new_id})
@@ -316,7 +318,7 @@ def update_shopping(sid):
     try:
         with get_db() as conn:
             fields, params = [], []
-            for col in ('name','note','price','bought','photo'):
+            for col in ('name','note','price','owner','bought','photo'):
                 if col in d:
                     fields.append(f'{col}=%s')
                     params.append(d[col])
