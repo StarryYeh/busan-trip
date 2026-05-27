@@ -736,12 +736,9 @@ function getSpotIconType(spot){
   const t=spot.tags||[];
   if(['✈️','🛬','🛫'].includes(e)) return 'plane';
   if(['🚌','🚐','🚎'].includes(e)) return 'car';
-  if(['🚃','🚂','🚄','🚅'].includes(e)) return 'train';
-  if(['🚡','🚠','🚟'].includes(e)) return 'mountain';
+  if(['🚃','🚂','🚄','🚅','🚡','🚠','🚟'].includes(e)) return 'train';
   if(['🚕','🚗','🚙'].includes(e)) return 'car';
-  if(['🏨','🏩','🏰','🏯'].includes(e)) return 'hotel';
-  if(['🧳'].includes(e)) return 'luggage';
-  if(['🌙'].includes(e)) return 'moon';
+  if(['🏨','🏩','🏰','🏯','🧳','🌙'].includes(e)) return 'hotel';
   if(['☕','🧋','🍵'].includes(e)) return 'coffee';
   if(['🍳','🍱','🦀','🥞','🍲','🥩','🍗','🦑','🐟','🍜','🍛','🥘','🍽️'].includes(e)) return 'food';
   if(['🛍️','👗','🧥','🎀','🛒','💄','🏬'].includes(e)) return 'shopping';
@@ -756,15 +753,15 @@ function getSpotIconType(spot){
   if(t.includes('體驗')) return 'activity';
   return 'pin';
 }
-// 給 timeline 用（color 透過 CSS currentColor 繼承）
-function getSpotSVGIcon(spot){ return SPOT_ICONS[getSpotIconType(spot)]||SPOT_ICONS.pin; }
-// 給 map marker 用（白色 icon on colored bg）
-function getSpotSVGIconWhite(spot,size=16){
-  return (SPOT_ICONS[getSpotIconType(spot)]||SPOT_ICONS.pin)
-    .replace(/stroke="currentColor"/g,'stroke="white"')
-    .replace(/fill="currentColor"/g,'fill="white"')
-    .replace(/width="20"/g,`width="${size}"`)
-    .replace(/height="20"/g,`height="${size}"`);
+// PNG icon tag for timeline (natural color, fixed)
+function getSpotIconImg(spot,size=22){
+  const type=getSpotIconType(spot);
+  return `<img src="/static/icons/${type}.png" width="${size}" height="${size}" style="object-fit:contain;display:block">`;
+}
+// PNG icon for map marker (CSS filter → white)
+function getSpotIconImgWhite(spot,size=16){
+  const type=getSpotIconType(spot);
+  return `<img src="/static/icons/${type}.png" width="${size}" height="${size}" style="object-fit:contain;display:block;filter:brightness(0) invert(1)">`;
 }
 
 const TAG_C={
@@ -964,9 +961,9 @@ function initMap(){
 function mkIcon(color,spot,active=false){
   const s=active?44:36;
   const sz=active?18:14;
-  const svg=getSpotSVGIconWhite(spot,sz);
+  const img=getSpotIconImgWhite(spot,sz);
   return L.divIcon({
-    html:`<div style="width:${s}px;height:${s}px;background:${color};border:${active?3:2.5}px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px ${active?14:7}px ${color}99">${svg}</div>`,
+    html:`<div style="width:${s}px;height:${s}px;background:${color};border:${active?3:2.5}px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px ${active?14:7}px ${color}99">${img}</div>`,
     className:'',iconSize:[s,s],iconAnchor:[s/2,s/2]
   });
 }
@@ -995,7 +992,7 @@ function renderDay(i){
     ).join('');
     m.bindPopup(`
       <div class="lp">
-        <div class="pe" style="color:${day.color}">${getSpotSVGIcon(sp)}</div>
+        <div class="pe">${getSpotIconImg(sp,28)}</div>
         <div class="pn">${sp.name}</div>
         <div class="pt">${sp.time}</div>
         ${sp.desc?`<div class="pd">${sp.desc}</div>`:''}
@@ -1061,7 +1058,7 @@ function tlHTML(hi=-1){
         </svg>
       </div>
       <div class="tl-line">
-        <div class="tl-dot" style="color:${day.color};border-color:${day.color}44">${getSpotSVGIcon(sp)}</div>
+        <div class="tl-dot" style="border-color:${day.color}55">${getSpotIconImg(sp)}</div>
         ${!isLast?`<div class="tl-conn" style="background:${day.color}"></div>`:''}
       </div>
       <div class="tl-body">
