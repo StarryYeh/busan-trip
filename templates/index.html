@@ -754,7 +754,7 @@ function getSpotIconType(spot){
   return 'pin';
 }
 // PNG icon tag for timeline (natural color, fixed)
-function getSpotIconImg(spot,size=22){
+function getSpotIconImg(spot,size=24){
   const type=getSpotIconType(spot);
   return `<img src="/static/icons/${type}.png" width="${size}" height="${size}" style="object-fit:contain;display:block">`;
 }
@@ -992,7 +992,7 @@ function renderDay(i){
     ).join('');
     m.bindPopup(`
       <div class="lp">
-        <div class="pe">${getSpotIconImg(sp,28)}</div>
+        <div class="pe">${getSpotIconImg(sp,31)}</div>
         <div class="pn">${sp.name}</div>
         <div class="pt">${sp.time}</div>
         ${sp.desc?`<div class="pd">${sp.desc}</div>`:''}
