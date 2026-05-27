@@ -126,6 +126,13 @@ def init_db():
             photo      TEXT DEFAULT '',
             created_at TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS')
         )''')
+        q(conn, '''CREATE TABLE IF NOT EXISTS todos (
+            id         SERIAL PRIMARY KEY,
+            task       TEXT NOT NULL,
+            owner      TEXT DEFAULT '',
+            done       INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS')
+        )''')
         q(conn, "INSERT INTO config(key,value) VALUES ('members','[]') ON CONFLICT DO NOTHING")
         q(conn, "INSERT INTO config(key,value) VALUES ('krw_rate','0.023') ON CONFLICT DO NOTHING")
         # Column migrations
@@ -322,6 +329,52 @@ def reorder_spots():
     with get_db() as conn:
         for i, sid in enumerate(d.get('order', [])):
             q(conn, 'UPDATE spots SET order_idx=%s WHERE id=%s', (i, sid))
+    return jsonify({"ok": True})
+
+# ── TODOS ───────────────────────────────────────────────────────
+@app.route('/api/todos', methods=['GET'])
+def get_todos():
+    with get_db() as conn:
+        rows = q(conn, 'SELECT * FROM todos ORDER BY done ASC, created_at ASC').fetchall()
+    return jsonify([dict(r) for r in rows])
+
+@app.route('/api/todos', methods=['POST'])
+def add_todo():
+    d = request.get_json()
+    if not d: return jsonify({"ok": False}), 400
+    try:
+        with get_db() as conn:
+            cur = q(conn,
+                'INSERT INTO todos (task, owner) VALUES (%s, %s) RETURNING id',
+                (d['task'], d.get('owner', ''))
+            )
+            new_id = cur.fetchone()['id']
+        return jsonify({"ok": True, "id": new_id})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route('/api/todos/<int:tid>', methods=['PUT'])
+def update_todo(tid):
+    d = request.get_json()
+    if not d: return jsonify({"ok": False}), 400
+    try:
+        with get_db() as conn:
+            fields, params = [], []
+            for col in ('task', 'owner', 'done'):
+                if col in d:
+                    fields.append(f'{col}=%s')
+                    params.append(d[col])
+            if not fields: return jsonify({"ok": True})
+            params.append(tid)
+            q(conn, f'UPDATE todos SET {",".join(fields)} WHERE id=%s', params)
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route('/api/todos/<int:tid>', methods=['DELETE'])
+def delete_todo(tid):
+    with get_db() as conn:
+        q(conn, 'DELETE FROM todos WHERE id=%s', (tid,))
     return jsonify({"ok": True})
 
 # ── SHOPPING ────────────────────────────────────────────────────

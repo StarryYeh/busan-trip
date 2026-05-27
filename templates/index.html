@@ -111,6 +111,22 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
 .shop-stat{font-size:12px;color:var(--muted);margin-bottom:14px;font-weight:500}
 .shop-stat b{color:var(--green)}
 
+/* ── TODO VIEW ── */
+.todo-item{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;transition:opacity .2s}
+.todo-item.done{opacity:.45}
+.todo-check{width:22px;height:22px;border-radius:6px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .2s}
+.todo-check.on{background:var(--green);border-color:var(--green)}
+.todo-body{flex:1;min-width:0}
+.todo-task{font-size:13px;font-weight:600;line-height:1.4}
+.todo-item.done .todo-task{text-decoration:line-through;color:var(--muted)}
+.todo-owner{display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px;margin-top:4px;background:#45B7D122;color:#2563EB;border:1px solid #45B7D166}
+.todo-del{width:28px;height:28px;border-radius:50%;border:none;background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s}
+.todo-del:hover{background:#FF6B6B22;color:var(--red)}
+.todo-section-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin:16px 0 8px;display:flex;align-items:center;gap:8px}
+.todo-section-label::after{content:'';flex:1;height:1px;background:var(--border)}
+.todo-stat{font-size:12px;color:var(--muted);margin-bottom:14px;font-weight:500}
+.todo-stat b{color:var(--green)}
+
 /* Expense onboarding */
 .onboard-wrap{padding:20px 16px}
 .onboard-card{background:linear-gradient(135deg,#F0F4FF,#F8FAFF);border:1px solid var(--border);border-radius:20px;padding:24px 20px}
@@ -318,6 +334,16 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
     <div class="exp-spacer"></div>
   </div>
 
+  <!-- TODO VIEW -->
+  <div id="view-todo" class="view" style="overflow-y:auto">
+    <div class="exp-section">
+      <div class="exp-title">行前待辦</div>
+      <div class="todo-stat" id="todoStat"></div>
+      <div id="todoList"></div>
+    </div>
+    <div class="exp-spacer"></div>
+  </div>
+
   <!-- SHOP VIEW -->
   <div id="view-shop" class="view" style="overflow-y:auto">
     <div class="exp-section">
@@ -343,6 +369,9 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
   </button>
   <button class="btab" id="btab-shop" onclick="switchTab('shop')">
     <span class="btab-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></span><span>待買清單</span>
+  </button>
+  <button class="btab" id="btab-todo" onclick="switchTab('todo')">
+    <span class="btab-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="5" width="6" height="6" rx="1"/><polyline points="3 17 5 19 9 15"/><line x1="13" y1="8" x2="21" y2="8"/><line x1="13" y1="18" x2="21" y2="18"/></svg></span><span>待辦清單</span>
   </button>
 </div>
 
@@ -590,6 +619,30 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px sol
   </div>
 </div>
 
+<!-- ── MODAL: ADD TODO ── -->
+<div class="overlay" id="ovTodo" onclick="overlayClick(event,'ovTodo')">
+  <div class="sheet">
+    <div class="sheet-handle" onclick="closeModal('ovTodo')"></div>
+    <div class="sheet-head">
+      <div class="sheet-title">新增待辦事項</div>
+      <button class="sheet-close" onclick="closeModal('ovTodo')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="fg">
+        <label class="flabel">待辦事項</label>
+        <input class="finput" id="tdTask" placeholder="例：訂膠囊列車票、買韓國 SIM 卡" type="text">
+      </div>
+      <div class="fg">
+        <label class="flabel">誰要辦</label>
+        <select class="finput" id="tdOwner">
+          <option value="">大家</option>
+        </select>
+      </div>
+      <button class="sbtn" onclick="addTodoItem()">新增</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════
 //  ITINERARY DATA
@@ -678,6 +731,7 @@ const S={
   editSpotId:null,
   filesBySpotId:{},  // spotId → [file, ...]
   shopItems:[],
+  todoItems:[],
 };
 
 // ═══════════════════════════════════════════
@@ -1012,11 +1066,12 @@ function switchTab(tab){
   document.getElementById(`btab-${tab}`).classList.add('active');
   document.getElementById('dayTabs').style.display=tab==='map'?'flex':'none';
   document.getElementById('fab').classList.remove('hidden');
-  const titles={map:'新增景點',expense:'新增消費',files:'上傳文件',shop:'新增待買'};
+  const titles={map:'新增景點',expense:'新增消費',files:'上傳文件',shop:'新增待買',todo:'新增待辦'};
   document.getElementById('fab').title = titles[tab]||'';
   if(tab==='expense'){loadExpenses(); closeDrawer();}
   if(tab==='files'){loadFiles(); closeDrawer();}
   if(tab==='shop'){loadShop(); closeDrawer();}
+  if(tab==='todo'){loadTodo(); closeDrawer();}
   if(tab==='map') setTimeout(()=>map.invalidateSize(),60);
 }
 
@@ -1025,6 +1080,7 @@ function handleFabClick(){
   else if(S.tab==='expense') openAddExpense();
   else if(S.tab==='files') openFileUpload();
   else if(S.tab==='shop') openAddShop();
+  else if(S.tab==='todo') openAddTodo();
 }
 
 async function loadFileIndex(){
@@ -1547,6 +1603,100 @@ async function reseedSpots(){
 function openModal(id){document.getElementById(id).classList.add('open'); document.body.style.overflow='hidden';}
 function closeModal(id){document.getElementById(id).classList.remove('open'); document.body.style.overflow='';}
 function overlayClick(e,id){if(e.target===document.getElementById(id))closeModal(id);}
+
+// ═══════════════════════════════════════════
+//  TODO LIST
+// ═══════════════════════════════════════════
+async function loadTodo(){
+  try{
+    const r = await fetch('/api/todos');
+    S.todoItems = await r.json();
+    renderTodoList();
+  }catch(e){ console.warn('todo fail',e); }
+}
+
+function renderTodoList(){
+  const el = document.getElementById('todoList');
+  const stat = document.getElementById('todoStat');
+  if(!S.todoItems.length){
+    if(stat) stat.textContent = '';
+    el.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--muted)">
+      <div style="font-size:40px;margin-bottom:10px">✅</div>
+      <div style="font-size:14px;font-weight:600">還沒有待辦事項</div>
+      <div style="font-size:12px;margin-top:4px">點右下角 ＋ 新增行前準備事項</div>
+    </div>`;
+    return;
+  }
+  const pending = S.todoItems.filter(i=>!i.done);
+  const done    = S.todoItems.filter(i=>i.done);
+  if(stat) stat.innerHTML = `共 ${S.todoItems.length} 項・<b>${done.length} 項已完成</b>`;
+
+  function itemHtml(item){
+    const checkIcon = item.done
+      ? `<svg width="11" height="11" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`
+      : '';
+    const ownerHtml = item.owner
+      ? `<span class="todo-owner">${item.owner}</span>`
+      : `<span class="todo-owner" style="background:var(--card);color:var(--muted);border-color:var(--border)">大家</span>`;
+    return `<div class="todo-item${item.done?' done':''}">
+      <div class="todo-check${item.done?' on':''}" onclick="toggleTodoDone(${item.id})">${checkIcon}</div>
+      <div class="todo-body">
+        <div class="todo-task">${item.task}</div>
+        ${ownerHtml}
+      </div>
+      <button class="todo-del" data-tid="${item.id}" title="刪除">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+      </button>
+    </div>`;
+  }
+
+  let html = pending.map(itemHtml).join('');
+  if(done.length){
+    html += `<div class="todo-section-label">已完成 ${done.length} 項</div>`;
+    html += done.map(itemHtml).join('');
+  }
+  el.innerHTML = html;
+
+  el.querySelectorAll('.todo-del[data-tid]').forEach(btn=>{
+    btn.onclick = async(e)=>{
+      e.stopPropagation();
+      const id = parseInt(btn.dataset.tid);
+      if(!confirm('確定刪除？')) return;
+      await fetch(`/api/todos/${id}`,{method:'DELETE'});
+      await loadTodo();
+    };
+  });
+}
+
+async function toggleTodoDone(id){
+  const item = S.todoItems.find(i=>i.id===id);
+  if(!item) return;
+  await fetch(`/api/todos/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({done: item.done ? 0 : 1})});
+  await loadTodo();
+}
+
+function openAddTodo(){
+  document.getElementById('tdTask').value='';
+  const sel = document.getElementById('tdOwner');
+  sel.innerHTML = '<option value="">大家</option>';
+  S.members.forEach(m=>{ sel.innerHTML+=`<option value="${m}">${m}</option>`; });
+  if(S.myName) sel.value = S.myName;
+  openModal('ovTodo');
+  setTimeout(()=>document.getElementById('tdTask').focus(),350);
+}
+
+async function addTodoItem(){
+  const task = document.getElementById('tdTask').value.trim();
+  if(!task){ alert('請輸入待辦事項'); return; }
+  const owner = document.getElementById('tdOwner').value;
+  try{
+    const r = await fetch('/api/todos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task,owner})});
+    const res = await r.json();
+    if(!res.ok) throw new Error(res.error);
+    closeModal('ovTodo');
+    await loadTodo();
+  }catch(e){ alert('新增失敗：'+e.message); }
+}
 
 // ═══════════════════════════════════════════
 //  SHOPPING LIST
