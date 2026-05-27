@@ -70,10 +70,10 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:none;bo
 .tl-item:hover .tl-drag{color:var(--muted)}
 .tl-item.sortable-ghost{opacity:.35;background:var(--card)!important}
 .tl-item.sortable-chosen{box-shadow:0 1px 3px rgba(60,64,67,.2)}
-.tl-acts{display:flex;gap:4px;margin-top:6px}
-.tl-act{padding:4px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:12px;font-weight:500;transition:all .15s}
-.tl-act:hover{border-color:var(--blue);color:var(--blue);background:#1A73E811}
-.tl-act.del:hover{border-color:var(--red);color:var(--red);background:#EA433511}
+.tl-acts{display:flex;gap:1px;flex-shrink:0}
+.tl-act{width:28px;height:28px;border-radius:50%;border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:background .15s;padding:0;line-height:1}
+.tl-act:hover{background:var(--card)}
+.tl-act.del:hover{background:#EA433511;color:var(--red)}
 
 /* Files view */
 .file-grid{display:flex;flex-direction:column;gap:8px}
@@ -275,8 +275,8 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:none;bo
 }
 @media(max-width:767px){
   #view-map .map-body{flex-direction:column}
-  #map{height:45%;flex:none}
-  .tl-panel{display:flex!important;width:100%!important;min-width:unset;height:55%;border-right:none;border-top:1px solid var(--border);order:1}
+  #map{height:57%;flex:none}
+  .tl-panel{display:flex!important;width:100%!important;min-width:unset;height:43%;border-right:none;border-top:1px solid var(--border);order:1}
   .tl-drawer,.map-fabs{display:none!important}
 }
 </style>
@@ -1065,13 +1065,19 @@ function tlHTML(hi=-1){
       </div>
       <div class="tl-body">
         <div class="tl-time">${sp.time}</div>
-        <div class="tl-name">${sp.name}</div>
+        <div style="display:flex;align-items:flex-start;gap:2px">
+          <div class="tl-name" style="flex:1;min-width:0">${sp.name}</div>
+          <div class="tl-acts" onclick="event.stopPropagation()">
+            <button class="tl-act" onclick="openEditSpot(${S.day},${i})" title="編輯">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button class="tl-act del" onclick="deleteSpotUI(${sp.id||0})" title="刪除">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            </button>
+          </div>
+        </div>
         ${sp.desc?`<div class="tl-note">${sp.desc}</div>`:''}
         ${tags?`<div class="tl-tags">${tags}</div>`:''}
-        <div class="tl-acts" onclick="event.stopPropagation()">
-          <button class="tl-act" onclick="openEditSpot(${S.day},${i})">✏️ 編輯</button>
-          <button class="tl-act del" onclick="deleteSpotUI(${sp.id||0})">🗑️ 刪除</button>
-        </div>
       </div>
     </div>`;
   }).join('');
