@@ -35,12 +35,12 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:none;bo
 .hdr-btn:hover{background:var(--card)}
 
 /* ── DAY TABS ── */
-.day-tabs{height:46px;flex-shrink:0;display:flex;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+.day-tabs{height:56px;flex-shrink:0;display:flex;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
 .day-tabs::-webkit-scrollbar{display:none}
-.day-tab{flex:1;min-width:68px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border-bottom:3px solid transparent;transition:all .2s;padding:2px 4px}
-.day-tab .dt-d{font-size:10px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.4px}
-.day-tab .dt-date{font-size:13px;font-weight:700}
-.day-tab .dt-theme{font-size:10px;color:var(--muted)}
+.day-tab{flex:1;min-width:72px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border-bottom:3px solid transparent;transition:all .2s;padding:4px 6px;gap:1px}
+.day-tab .dt-d{font-size:10px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.4px;line-height:1.2}
+.day-tab .dt-date{font-size:14px;font-weight:700;line-height:1.2}
+.day-tab .dt-theme{font-size:10px;color:var(--muted);line-height:1.2;max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .day-tab[data-d="0"].active{border-bottom-color:var(--d1)}.day-tab[data-d="0"].active .dt-date{color:var(--d1)}
 .day-tab[data-d="1"].active{border-bottom-color:var(--d2)}.day-tab[data-d="1"].active .dt-date{color:var(--d2)}
 .day-tab[data-d="2"].active{border-bottom-color:var(--d3)}.day-tab[data-d="2"].active .dt-date{color:var(--d3)}
@@ -139,10 +139,11 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:none;bo
 .ob-num{width:28px;height:28px;border-radius:50%;color:#fff;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
 .ob-title{font-size:15px;font-weight:500;color:var(--text)}
 .ob-desc{font-size:13px;color:var(--muted);margin-top:3px;line-height:1.5}
-.tl-line{display:flex;flex-direction:column;align-items:center;width:26px;flex-shrink:0}
-.tl-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:2px solid transparent;flex-shrink:0;transition:transform .2s}
-.tl-item.active .tl-dot{transform:scale(1.1)}
-.tl-conn{width:2px;flex:1;min-height:6px;margin:2px 0;opacity:.3}
+.tl-line{display:flex;flex-direction:column;align-items:center;width:44px;flex-shrink:0}
+.tl-dot{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1.5px solid;flex-shrink:0;background:#fff;box-shadow:0 1px 3px rgba(60,64,67,.18),0 2px 6px rgba(60,64,67,.1);transition:transform .2s,box-shadow .2s}
+.tl-dot svg{display:block;flex-shrink:0}
+.tl-item.active .tl-dot{transform:scale(1.08);box-shadow:0 2px 8px rgba(60,64,67,.22),0 4px 12px rgba(60,64,67,.12)}
+.tl-conn{width:2px;flex:1;min-height:8px;margin:3px 0;opacity:.2}
 .tl-body{flex:1;padding-top:2px;min-width:0}
 .tl-time{font-size:11px;color:var(--muted);font-weight:500}
 .tl-name{font-size:14px;font-weight:500;line-height:1.3}
@@ -261,7 +262,7 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:none;bo
 /* Leaflet popup */
 .leaflet-popup-content-wrapper{background:#FFFFFF;color:var(--text);border:1px solid var(--border);border-radius:8px;box-shadow:0 1px 3px rgba(60,64,67,.3),0 4px 8px rgba(60,64,67,.15)}
 .leaflet-popup-tip{background:#FFFFFF}
-.lp{min-width:160px}.lp .pe{font-size:22px;text-align:center;margin-bottom:4px}
+.lp{min-width:160px}.lp .pe{display:flex;align-items:center;justify-content:center;margin-bottom:6px}
 .lp .pn{font-size:14px;font-weight:500}.lp .pt{font-size:12px;color:var(--muted);margin-top:2px}
 .lp .pd{font-size:12px;margin-top:5px;line-height:1.45;color:var(--muted)}
 .map-link-row{display:flex;gap:6px;margin-top:10px}.map-link-btn{flex:1;text-align:center;text-decoration:none;font-size:13px;font-weight:500;padding:8px;border-radius:4px;background:#fff;color:var(--blue);border:1.5px solid var(--blue)}.map-link-btn:hover{background:var(--blue);color:#fff}
@@ -712,6 +713,60 @@ const DAYS=[
 // 備份原始資料，讓「重置基礎行程」功能可以用
 const DEFAULT_DAYS = DAYS.map(d=>({...d, spots: d.spots.map(s=>({...s}))}));
 
+// ═══════════════════════════════════════════
+//  SPOT SVG ICONS
+// ═══════════════════════════════════════════
+const SPOT_ICONS={
+  plane:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21 4 19 2c-2-2-4-2-5.5-.5L10 5 1.8 6.2l3.5 3.5L4 12l3 3-1 3 3-1 3 3 1.2-3.8 3.5 3.5 L14.8 12l3.5 3.5z"/></svg>`,
+  hotel:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+  food:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6h3v4a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-4h3"/></svg>`,
+  coffee:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>`,
+  shopping:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`,
+  train:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="16" rx="2"/><path d="M4 11h16"/><path d="M12 3v8"/><path d="M8 19l-2 3"/><path d="M16 19l2 3"/><circle cx="8" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="15" r="1" fill="currentColor" stroke="none"/></svg>`,
+  car:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h13l4 4v6a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/><polyline points="3 9 6 6 16 6"/></svg>`,
+  activity:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+  camera:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`,
+  mountain:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 20 9 4 15 14 19 10 21 20"/></svg>`,
+  moon:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`,
+  luggage:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="16" height="12" rx="2"/><path d="M16 9V7a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>`,
+  pin:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
+};
+function getSpotIconType(spot){
+  const e=spot.emoji||'';
+  const t=spot.tags||[];
+  if(['✈️','🛬','🛫'].includes(e)) return 'plane';
+  if(['🚌','🚐','🚎'].includes(e)) return 'car';
+  if(['🚃','🚂','🚄','🚅'].includes(e)) return 'train';
+  if(['🚡','🚠','🚟'].includes(e)) return 'mountain';
+  if(['🚕','🚗','🚙'].includes(e)) return 'car';
+  if(['🏨','🏩','🏰','🏯'].includes(e)) return 'hotel';
+  if(['🧳'].includes(e)) return 'luggage';
+  if(['🌙'].includes(e)) return 'moon';
+  if(['☕','🧋','🍵'].includes(e)) return 'coffee';
+  if(['🍳','🍱','🦀','🥞','🍲','🥩','🍗','🦑','🐟','🍜','🍛','🥘','🍽️'].includes(e)) return 'food';
+  if(['🛍️','👗','🧥','🎀','🛒','💄','🏬'].includes(e)) return 'shopping';
+  if(['♨️','🛷','🎡','🎢','🎟️'].includes(e)) return 'activity';
+  if(['🎨','🖼️','📸'].includes(e)) return 'camera';
+  if(['🏖️','🏝️','🌉','🏘️','🌆','🌇','🏛️'].includes(e)) return 'pin';
+  if(t.includes('交通')) return 'plane';
+  if(t.includes('住宿')) return 'hotel';
+  if(t.includes('美食')) return 'food';
+  if(t.includes('咖啡')) return 'coffee';
+  if(t.includes('購物')) return 'shopping';
+  if(t.includes('體驗')) return 'activity';
+  return 'pin';
+}
+// 給 timeline 用（color 透過 CSS currentColor 繼承）
+function getSpotSVGIcon(spot){ return SPOT_ICONS[getSpotIconType(spot)]||SPOT_ICONS.pin; }
+// 給 map marker 用（白色 icon on colored bg）
+function getSpotSVGIconWhite(spot,size=16){
+  return (SPOT_ICONS[getSpotIconType(spot)]||SPOT_ICONS.pin)
+    .replace(/stroke="currentColor"/g,'stroke="white"')
+    .replace(/fill="currentColor"/g,'fill="white"')
+    .replace(/width="20"/g,`width="${size}"`)
+    .replace(/height="20"/g,`height="${size}"`);
+}
+
 const TAG_C={
   "交通":"#8888AA","住宿":"#DDA0DD","美食":"#FF9F43","體驗":"#54A0FF",
   "購物":"#A29BFE","景點":"#01CBC6","咖啡":"#FD79A8","打卡":"#FD79A8",
@@ -906,10 +961,12 @@ function initMap(){
   L.control.zoom({position:'topright'}).addTo(map);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{attribution:'© CARTO',maxZoom:19}).addTo(map);
 }
-function mkIcon(color,emoji,active=false){
-  const s=active?40:32;
+function mkIcon(color,spot,active=false){
+  const s=active?44:36;
+  const sz=active?18:14;
+  const svg=getSpotSVGIconWhite(spot,sz);
   return L.divIcon({
-    html:`<div style="width:${s}px;height:${s}px;background:${color};border:${active?3:2}px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:${active?16:13}px;box-shadow:0 2px ${active?14:7}px ${color}88">${emoji}</div>`,
+    html:`<div style="width:${s}px;height:${s}px;background:${color};border:${active?3:2.5}px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px ${active?14:7}px ${color}99">${svg}</div>`,
     className:'',iconSize:[s,s],iconAnchor:[s/2,s/2]
   });
 }
@@ -926,7 +983,7 @@ function renderDay(i){
   const day=DAYS[i], bounds=[];
   day.spots.forEach((sp,si)=>{
     if(!(sp.lat && sp.lng)) return;
-    const m=L.marker([sp.lat,sp.lng],{icon:mkIcon(day.color,sp.emoji)}).addTo(map);
+    const m=L.marker([sp.lat,sp.lng],{icon:mkIcon(day.color,sp)}).addTo(map);
     markerBySpotIndex[si] = m;
     const links = mapLinks(sp);
     const linkedFiles = (S.filesBySpotId[sp.id]||[]);
@@ -938,7 +995,7 @@ function renderDay(i){
     ).join('');
     m.bindPopup(`
       <div class="lp">
-        <div class="pe">${sp.emoji}</div>
+        <div class="pe" style="color:${day.color}">${getSpotSVGIcon(sp)}</div>
         <div class="pn">${sp.name}</div>
         <div class="pt">${sp.time}</div>
         ${sp.desc?`<div class="pd">${sp.desc}</div>`:''}
@@ -963,7 +1020,7 @@ function setSpot(di,si){
   const sp=day.spots[si];
   Object.entries(markerBySpotIndex).forEach(([idx,m])=>{
     const sourceSpot=day.spots[Number(idx)];
-    if(sourceSpot) m.setIcon(mkIcon(day.color,sourceSpot.emoji,Number(idx)===si));
+    if(sourceSpot) m.setIcon(mkIcon(day.color,sourceSpot,Number(idx)===si));
   });
   if(sp.lat && sp.lng && markerBySpotIndex[si]){
     map.flyTo([sp.lat,sp.lng],17,{animate:true,duration:.7});
@@ -1004,7 +1061,7 @@ function tlHTML(hi=-1){
         </svg>
       </div>
       <div class="tl-line">
-        <div class="tl-dot" style="background:${day.color}22;color:${day.color};border-color:${day.color}66">${sp.emoji}</div>
+        <div class="tl-dot" style="color:${day.color};border-color:${day.color}44">${getSpotSVGIcon(sp)}</div>
         ${!isLast?`<div class="tl-conn" style="background:${day.color}"></div>`:''}
       </div>
       <div class="tl-body">
