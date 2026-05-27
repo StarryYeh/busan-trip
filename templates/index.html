@@ -714,13 +714,12 @@ async function putSpot(id, d){
   return r.json();
 }
 async function seedAndLoadSpots(){
-  // 每次開啟 app 都 reseed，確保預設行程永遠在
-  // 使用穩定的遞增 ID，讓 file 連結不會因 reseed 而斷掉
+  // 只在 DB 完全沒有景點時才 seed（首次部署 or 全部刪光）
+  // 已有景點時直接載入 DB 資料，保留所有人的新增 / 修改
   const allSpots = [];
   DEFAULT_DAYS.forEach((day, di)=>{
     day.spots.forEach((sp, si)=>{
       allSpots.push({
-        id: allSpots.length + 1,  // stable 1-based ID
         day_num: di+1, time: sp.time||'', name: sp.name||'',
         map_name: sp.mapName||sp.name||'', google_map_url: sp.googleMapUrl||'',
         emoji: sp.emoji||'📍', lat: sp.lat||null, lng: sp.lng||null,
@@ -729,7 +728,7 @@ async function seedAndLoadSpots(){
     });
   });
   try{
-    await fetch('/api/spots/reseed',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(allSpots)});
+    await fetch('/api/spots/seed',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(allSpots)});
   }catch(e){ console.warn('seed fail',e); }
   await loadSpots();
 }
