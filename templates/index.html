@@ -262,10 +262,10 @@ header{height:56px;flex-shrink:0;background:var(--surface);border-bottom:none;bo
 /* Leaflet popup */
 .leaflet-popup-content-wrapper{background:#FFFFFF;color:var(--text);border:1px solid var(--border);border-radius:8px;box-shadow:0 1px 3px rgba(60,64,67,.3),0 4px 8px rgba(60,64,67,.15)}
 .leaflet-popup-tip{background:#FFFFFF}
-.lp{min-width:160px}.lp .pe{display:flex;align-items:center;justify-content:center;margin-bottom:6px}
-.lp .pn{font-size:14px;font-weight:500}.lp .pt{font-size:12px;color:var(--muted);margin-top:2px}
-.lp .pd{font-size:12px;margin-top:5px;line-height:1.45;color:var(--muted)}
-.map-link-row{display:flex;gap:6px;margin-top:10px}.map-link-btn{flex:1;text-align:center;text-decoration:none;font-size:13px;font-weight:500;padding:8px;border-radius:4px;background:#fff;color:var(--blue);border:1.5px solid var(--blue)}.map-link-btn:hover{background:var(--blue);color:#fff}
+.lp{min-width:180px;text-align:center}.lp .pe{display:flex;align-items:center;justify-content:center;margin-bottom:8px}
+.lp .pn{font-size:14px;font-weight:500}.lp .pt{font-size:12px;color:var(--muted);margin-top:3px}
+.lp .pd{font-size:12px;margin-top:6px;line-height:1.5;color:var(--muted);text-align:left}
+.map-link-row{display:flex;gap:6px;margin-top:10px;justify-content:center}.map-link-btn{flex:1;text-align:center;text-decoration:none;font-size:13px;font-weight:500;padding:8px 12px;border-radius:4px;background:#fff;color:var(--blue);border:1.5px solid var(--blue)}.map-link-btn:hover{background:var(--blue);color:#fff}
 
 
 /* Desktop */
@@ -758,10 +758,10 @@ function getSpotIconImg(spot,size=24){
   const type=getSpotIconType(spot);
   return `<img src="/static/icons/${type}.png" width="${size}" height="${size}" style="object-fit:contain;display:block">`;
 }
-// PNG icon for map marker (CSS filter → white)
-function getSpotIconImgWhite(spot,size=16){
+// PNG icon for map marker (natural color, white bg circle)
+function getSpotIconImgMarker(spot,size=18){
   const type=getSpotIconType(spot);
-  return `<img src="/static/icons/${type}.png" width="${size}" height="${size}" style="object-fit:contain;display:block;filter:brightness(0) invert(1)">`;
+  return `<img src="/static/icons/${type}.png" width="${size}" height="${size}" style="object-fit:contain;display:block">`;
 }
 
 const TAG_C={
@@ -959,11 +959,13 @@ function initMap(){
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{attribution:'© CARTO',maxZoom:19}).addTo(map);
 }
 function mkIcon(color,spot,active=false){
-  const s=active?44:36;
-  const sz=active?18:14;
-  const img=getSpotIconImgWhite(spot,sz);
+  const s=active?48:38;
+  const sz=active?22:17;
+  const img=getSpotIconImgMarker(spot,sz);
+  const border=active?`3px solid ${color}`:`2px solid ${color}88`;
+  const shadow=active?`0 2px 10px ${color}88,0 0 0 3px ${color}22`:`0 1px 4px rgba(60,64,67,.3)`;
   return L.divIcon({
-    html:`<div style="width:${s}px;height:${s}px;background:${color};border:${active?3:2.5}px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px ${active?14:7}px ${color}99">${img}</div>`,
+    html:`<div style="width:${s}px;height:${s}px;background:#fff;border:${border};border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:${shadow}">${img}</div>`,
     className:'',iconSize:[s,s],iconAnchor:[s/2,s/2]
   });
 }
